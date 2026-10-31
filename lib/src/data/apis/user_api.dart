@@ -57,6 +57,14 @@ class UserApi {
   Future<ApiResponse<Map<String, dynamic>>> updateFcmToken(String fcmToken) {
     return _api.patch('/user/fcm', {'fcm': fcmToken}, requireAuth: true);
   }
+
+  /// Soft-deletes the signed-in user (`POST /user/account`).
+  ///
+  /// POST is used so this cannot fall through to the admin `GET /user/:id`
+  /// route, which responds with "Admin access required" for members.
+  Future<ApiResponse<Map<String, dynamic>>> deleteAccount() {
+    return _api.post('/user/account', const <String, dynamic>{}, requireAuth: true);
+  }
 }
 
 final userApiProvider = Provider<UserApi>(

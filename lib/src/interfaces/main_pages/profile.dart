@@ -31,12 +31,14 @@ class _ProfileMenuItem {
     required this.title,
     required this.chevronColor,
     required this.onTap,
+    this.foregroundColor,
   });
 
   final IconData icon;
   final String title;
   final Color chevronColor;
   final VoidCallback onTap;
+  final Color? foregroundColor;
 }
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -49,6 +51,7 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isUploadingAvatar = false;
   bool _isSharingQr = false;
+  bool _isDeletingAccount = false;
   final ProfileQrShareService _qrShareService = const ProfileQrShareService();
 
   Future<void> _logout(BuildContext context) async {
@@ -84,6 +87,62 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     DeepLinkService.instance.resetReady();
     if (!context.mounted) return;
     NavigationService().pushNamedAndRemoveUntil('Login');
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    if (_isDeletingAccount) return;
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This permanently deletes your account. You will be signed out '
+          'and your saved session will be removed from this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete', style: TextStyle(color: kRed)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !context.mounted) return;
+
+    setState(() => _isDeletingAccount = true);
+    try {
+      final response = await ref.read(userApiProvider).deleteAccount();
+      if (!response.success) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message ?? 'Failed to delete account'),
+          ),
+        );
+        return;
+      }
+
+      await ref.read(secureStorageServiceProvider).clearSession();
+      invalidateSessionCaches(ref);
+      DeepLinkService.instance.resetReady();
+      if (!context.mounted) return;
+      NavigationService().pushNamedAndRemoveUntil('Login');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDeletingAccount = false);
+    }
   }
 
   Future<void> _onAvatarTap() async {
@@ -329,6 +388,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Widget _buildMenuItem(_ProfileMenuItem item) {
     // Figma menu row: icon 24 · gap 8 · label 12 Regular/#161616 · chevron 24
+    final foreground = item.foregroundColor ?? kPrimaryColor;
+    final labelColor = item.foregroundColor ?? kBodyText;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -340,18 +401,50 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           padding: EdgeInsets.zero,
           child: Row(
             children: [
-              Icon(item.icon, color: kPrimaryColor, size: 24),
+              Icon(item.icon, color: foreground, size: 24),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   item.title,
-                  style: kCaption12R.copyWith(color: kBodyText, height: 1.2),
+                  style: kCaption12R.copyWith(color: labelColor, height: 1.2),
                 ),
               ),
               Icon(Icons.chevron_right, color: item.chevronColor, size: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _sessionActions(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kScreenBg,
+        borderRadius: BorderRadius.circular(kCardRadiusSm),
+      ),
+      child: Column(
+        children: [
+          _buildMenuItem(
+            _ProfileMenuItem(
+              icon: Icons.logout,
+              title: 'Logout',
+              chevronColor: kPrimaryColor,
+              onTap: () => _logout(context),
+            ),
+          ),
+          _buildDivider(),
+          _buildMenuItem(
+            _ProfileMenuItem(
+              icon: Icons.delete_outline,
+              title: _isDeletingAccount ? 'Deleting account...' : 'Delete account',
+              chevronColor: kRed,
+              foregroundColor: kRed,
+              onTap: () => _deleteAccount(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -753,6 +846,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 onTap: () => _logout(context),
               ),
             ),
+            _buildDivider(),
+            _buildMenuItem(
+              _ProfileMenuItem(
+                icon: Icons.delete_outline,
+                title: _isDeletingAccount
+                    ? 'Deleting account...'
+                    : 'Delete account',
+                chevronColor: kRed,
+                foregroundColor: kRed,
+                onTap: () => _deleteAccount(context),
+              ),
+            ),
           ],
         ],
       ),
@@ -845,39 +950,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       context: context,
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: kScreenBg,
-                        borderRadius: BorderRadius.circular(kCardRadiusSm),
-                      ),
-                      child: _buildMenuItem(
-                        _ProfileMenuItem(
-                          icon: Icons.logout,
-                          title: 'Logout',
-                          chevronColor: kPrimaryColor,
-                          onTap: () => _logout(context),
-                        ),
-                      ),
-                    ),
+                    _sessionActions(context),
                   ] else ...[
                     _menuCard(items: menuItems, context: context),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: kScreenBg,
-                        borderRadius: BorderRadius.circular(kCardRadiusSm),
-                      ),
-                      child: _buildMenuItem(
-                        _ProfileMenuItem(
-                          icon: Icons.logout,
-                          title: 'Logout',
-                          chevronColor: kPrimaryColor,
-                          onTap: () => _logout(context),
-                        ),
-                      ),
-                    ),
+                    _sessionActions(context),
                   ],
                   const SizedBox(height: 24),
                 ],
