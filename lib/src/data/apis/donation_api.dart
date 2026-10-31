@@ -78,7 +78,7 @@ class DonationApi {
   >
   getHistory({
     int pageNo = 1,
-    int limit = 20,
+    int limit = 100,
     String status = 'success',
   }) async {
     final response = await _api.get(

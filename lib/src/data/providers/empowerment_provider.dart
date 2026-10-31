@@ -64,3 +64,17 @@ Future<bool> _resolveProgramAppliedStatus(Ref ref, String id) async {
   }
   return false;
 }
+
+final empowermentSearchProvider = FutureProvider.autoDispose
+    .family<
+      PaginatedResponse<EmpowermentProgramModel>,
+      ({String search, int page})
+    >((ref, query) async {
+      final response = await ref
+          .watch(empowermentApiProvider)
+          .getPrograms(search: query.search, pageNo: query.page);
+      if (!response.success || response.data == null) {
+        throw Exception(response.message ?? 'Failed to load programs');
+      }
+      return response.data!;
+    });

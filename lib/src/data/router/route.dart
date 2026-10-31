@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jamiat/src/data/services/deep_link_service.dart';
+import 'package:jamiat/src/interfaces/animations/page_load_animation.dart';
 import 'package:jamiat/src/interfaces/main_pages/navbar.dart';
 import 'package:jamiat/src/interfaces/onboarding/login.dart';
 import 'package:jamiat/src/interfaces/onboarding/splash_screen.dart';
@@ -151,21 +152,21 @@ Route<dynamic> generateRoute(RouteSettings? settings) {
 
     case 'Login':
       page = const LoginScreen();
-      transitionToUse = TransitionType.slideFromRight;
-      transitionDuration = const Duration(milliseconds: 300);
+      transitionToUse = TransitionType.fade;
+      transitionDuration = const Duration(milliseconds: 500);
       break;
 
     case 'RoleSelection':
       page = const RoleSelectionScreen();
-      transitionToUse = TransitionType.slideFromRight;
+      transitionToUse = TransitionType.slideFromBottom;
       transitionDuration = const Duration(milliseconds: 300);
       break;
 
     case 'Registration':
       final args = settings?.arguments as Map<String, dynamic>?;
       page = RegistrationScreen(isEditMode: args?['editMode'] == true);
-      transitionToUse = TransitionType.slideFromRight;
-      transitionDuration = const Duration(milliseconds: 300);
+      transitionToUse = TransitionType.fade;
+      transitionDuration = const Duration(milliseconds: 500);
       break;
 
     case 'DonationList':
@@ -221,8 +222,8 @@ Route<dynamic> generateRoute(RouteSettings? settings) {
         message: args?['message'] as String?,
         donationId: args?['donationId'] as String?,
       );
-      transitionToUse = TransitionType.slideFromRight;
-      transitionDuration = const Duration(milliseconds: 300);
+      transitionToUse = TransitionType.fade;
+      transitionDuration = const Duration(milliseconds: 500);
       break;
 
     case 'DonationsView':
@@ -441,7 +442,7 @@ Route<dynamic> generateRoute(RouteSettings? settings) {
     case 'navBar':
       page = const NavBar();
       transitionToUse = TransitionType.fade;
-      transitionDuration = const Duration(milliseconds: 300);
+      transitionDuration = const Duration(milliseconds: 500);
       break;
 
     default:
@@ -491,8 +492,11 @@ Route<dynamic> generateRoute(RouteSettings? settings) {
         ),
       );
   }
+  // Splash has its own entrance. Nav tabs animate inside NavBar.
+  final skipPageLoad =
+      settings?.name == 'Splash' || settings?.name == 'navBar';
   return createRoute(
-    page,
+    skipPageLoad ? page : PageLoadAnimation(child: page),
     transition: transitionToUse,
     duration: transitionDuration,
     settings: settings,

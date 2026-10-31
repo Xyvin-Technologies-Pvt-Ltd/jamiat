@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,21 +25,33 @@ class _EmpowermentProgramsScreenState
     extends ConsumerState<EmpowermentProgramsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedChip = 'All';
+  int _page = 1;
+  Timer? _searchDebounce;
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    if (value.trim().isEmpty) {
+      _applySearch();
+    } else {
+      _searchDebounce = Timer(const Duration(milliseconds: 300), _applySearch);
+    }
+  }
+
+  void _applySearch() {
+    _searchDebounce?.cancel();
+    final query = _searchController.text.trim();
+    if (!mounted || query == _searchQuery) return;
+    setState(() {
+      _searchQuery = query;
+      _page = 1;
+    });
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  List<EmpowermentProgramModel> _filter(List<EmpowermentProgramModel> items) {
-    if (_searchQuery.isEmpty) return items;
-    final q = _searchQuery.toLowerCase();
-    return items.where((p) {
-      return p.title.toLowerCase().contains(q) ||
-          p.description.toLowerCase().contains(q);
-    }).toList();
   }
 
   Future<void> _apply(EmpowermentProgramModel program) async {
@@ -45,9 +59,7 @@ class _EmpowermentProgramsScreenState
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Apply for program?'),
-        content: Text(
-          'Do you want to apply for "${program.title}"?',
-        ),
+        content: Text('Do you want to apply for "${program.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -69,6 +81,7 @@ class _EmpowermentProgramsScreenState
     if (!mounted) return;
     if (res.success) {
       ref.invalidate(empowermentProgramsProvider('all'));
+      ref.invalidate(empowermentSearchProvider);
       ref.invalidate(empowermentProgramsProvider('applied'));
       showDialog<void>(
         context: context,
@@ -97,14 +110,12 @@ class _EmpowermentProgramsScreenState
         : await api.saveProgram(program.id);
     if (res.success) {
       ref.invalidate(empowermentProgramsProvider('all'));
+      ref.invalidate(empowermentSearchProvider);
       ref.invalidate(empowermentProgramsProvider('saved'));
     }
   }
 
-  Widget _headerCircleButton({
-    required Widget child,
-    VoidCallback? onTap,
-  }) {
+  Widget _headerCircleButton({required Widget child, VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -142,7 +153,11 @@ class _EmpowermentProgramsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final programsAsync = ref.watch(empowermentProgramsProvider('all'));
+    final searchProvider = empowermentSearchProvider((
+      search: _searchQuery,
+      page: _page,
+    ));
+    final programsAsync = ref.watch(searchProvider);
 
     return Scaffold(
       backgroundColor: kWhite,
@@ -172,10 +187,7 @@ class _EmpowermentProgramsScreenState
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Empowerment Programs',
-                      style: kSectionTitleSB,
-                    ),
+                    child: Text('Empowerment Programs', style: kSectionTitleSB),
                   ),
                   _headerCircleButton(
                     onTap: () {
@@ -213,8 +225,9 @@ class _EmpowermentProgramsScreenState
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (v) =>
-                            setState(() => _searchQuery = v.trim()),
+                        onChanged: _onSearchChanged,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _applySearch(),
                         decoration: InputDecoration(
                           hintText: 'Search programs',
                           hintStyle: kBodyTitleR.copyWith(
@@ -230,231 +243,210 @@ class _EmpowermentProgramsScreenState
               ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 30,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: kScreenPaddingH,
-                ),
-                children: [
-                  for (final label in const [
-                    'All',
-                    'Education',
-                    'Skill',
-                    'Career',
-                    'Youth',
-                  ]) ...[
-                    if (label != 'All') const SizedBox(width: 12),
-                    _CategoryChip(
-                      label: label,
-                      selected: _selectedChip == label,
-                      onTap: () => setState(() => _selectedChip = label),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
             Expanded(
               child: AsyncContent(
                 asyncValue: programsAsync,
-                onRetry: () =>
-                    ref.invalidate(empowermentProgramsProvider('all')),
+                onRetry: () => ref.invalidate(searchProvider),
                 builder: (page) {
-                  final programs = _filter(page.items);
+                  final programs = page.items;
                   if (programs.isEmpty) {
                     return Center(
                       child: Text('No programs found', style: kEmptyStateM),
                     );
                   }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: kScreenPaddingH,
-                    ),
-                    itemCount: programs.length,
-                    itemBuilder: (context, index) {
-                      final program = programs[index];
-                      return GestureDetector(
-                        onTap: () {
-                          NavigationService().pushNamed(
-                            'ProgramDetails',
-                            arguments: {
-                              'programId': program.id,
-                              'isApplied': program.isApplied,
-                            },
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            color: kWhite,
-                            borderRadius:
-                                BorderRadius.circular(kCardRadiusLg),
-                            border: Border.all(color: kCardBorder),
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          key: ValueKey((_searchQuery, _page)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: kScreenPaddingH,
                           ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Stack(
-                                children: [
-                                  _image(program.image),
-                                  Positioned(
-                                    top: 10,
-                                    right: 10,
-                                    child: Material(
-                                      color: kBlack.withValues(alpha: 0.35),
-                                      shape: const CircleBorder(),
-                                      child: InkWell(
-                                        customBorder: const CircleBorder(),
-                                        onTap: () {
-                                          HapticHelper.impact(
-                                            HapticImpact.light,
-                                          );
-                                          _toggleSave(program);
-                                        },
-                                        child: SizedBox(
-                                          width: 36,
-                                          height: 36,
-                                          child: Center(
-                                            child: SvgPicture.asset(
-                                              'assets/svg/bookmark.svg',
-                                              width: 16,
-                                              height: 16,
-                                              colorFilter: ColorFilter.mode(
-                                                program.isBookmarked
-                                                    ? kPrimaryColor
-                                                    : kWhite,
-                                                BlendMode.srcIn,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                          itemCount: programs.length,
+                          itemBuilder: (context, index) {
+                            final program = programs[index];
+                            return GestureDetector(
+                              onTap: () {
+                                NavigationService().pushNamed(
+                                  'ProgramDetails',
+                                  arguments: {
+                                    'programId': program.id,
+                                    'isApplied': program.isApplied,
+                                  },
+                                );
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: kWhite,
+                                  borderRadius: BorderRadius.circular(
+                                    kCardRadiusLg,
                                   ),
-                                ],
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(14),
+                                  border: Border.all(color: kCardBorder),
+                                ),
+                                clipBehavior: Clip.antiAlias,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(program.title, style: kSectionTitleSB),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      program.description,
-                                      style: kCaption12R.copyWith(
-                                        color: kSecondaryTextColor,
-                                        height: 1.4,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
+                                    Stack(
                                       children: [
-                                        if (program.startDate != null)
-                                          Expanded(
-                                            child: Text(
-                                              'Starts ${formatDateLabel(program.startDate)}',
-                                              style: kCaption12R.copyWith(
-                                                color: kTextColor,
-                                              ),
+                                        _image(program.image),
+                                        Positioned(
+                                          top: 10,
+                                          right: 10,
+                                          child: Material(
+                                            color: kBlack.withValues(
+                                              alpha: 0.35,
                                             ),
-                                          )
-                                        else
-                                          const Spacer(),
-                                        SizedBox(
-                                          height: 40,
-                                          child: ElevatedButton(
-                                            onPressed: program.isApplied
-                                                ? null
-                                                : () {
-                                                    HapticHelper.impact(
-                                                      HapticImpact.medium,
-                                                    );
-                                                    _apply(program);
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: kPrimaryColor,
-                                              foregroundColor: kWhite,
-                                              disabledBackgroundColor:
-                                                  kPrimaryColor.withValues(
-                                                alpha: 0.6,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 20,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                  kCardRadiusSm,
+                                            shape: const CircleBorder(),
+                                            child: InkWell(
+                                              customBorder:
+                                                  const CircleBorder(),
+                                              onTap: () {
+                                                HapticHelper.impact(
+                                                  HapticImpact.light,
+                                                );
+                                                _toggleSave(program);
+                                              },
+                                              child: SizedBox(
+                                                width: 36,
+                                                height: 36,
+                                                child: Center(
+                                                  child: SvgPicture.asset(
+                                                    'assets/svg/bookmark.svg',
+                                                    width: 16,
+                                                    height: 16,
+                                                    colorFilter:
+                                                        ColorFilter.mode(
+                                                          program.isBookmarked
+                                                              ? kPrimaryColor
+                                                              : kWhite,
+                                                          BlendMode.srcIn,
+                                                        ),
+                                                  ),
                                                 ),
                                               ),
-                                              elevation: 0,
-                                            ),
-                                            child: Text(
-                                              program.isApplied
-                                                  ? 'Applied'
-                                                  : 'Apply',
-                                              style: kButtonLabelSB,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(14),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            program.title,
+                                            style: kSectionTitleSB,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            program.description,
+                                            style: kCaption12R.copyWith(
+                                              color: kSecondaryTextColor,
+                                              height: 1.4,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              if (program.startDate != null)
+                                                Expanded(
+                                                  child: Text(
+                                                    'Starts ${formatDateLabel(program.startDate)}',
+                                                    style: kCaption12R.copyWith(
+                                                      color: kTextColor,
+                                                    ),
+                                                  ),
+                                                )
+                                              else
+                                                const Spacer(),
+                                              SizedBox(
+                                                height: 40,
+                                                child: ElevatedButton(
+                                                  onPressed: program.isApplied
+                                                      ? null
+                                                      : () {
+                                                          HapticHelper.impact(
+                                                            HapticImpact.medium,
+                                                          );
+                                                          _apply(program);
+                                                        },
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        kPrimaryColor,
+                                                    foregroundColor: kWhite,
+                                                    disabledBackgroundColor:
+                                                        kPrimaryColor
+                                                            .withValues(
+                                                              alpha: 0.6,
+                                                            ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 20,
+                                                        ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            kCardRadiusSm,
+                                                          ),
+                                                    ),
+                                                    elevation: 0,
+                                                  ),
+                                                  child: Text(
+                                                    program.isApplied
+                                                        ? 'Applied'
+                                                        : 'Apply',
+                                                    style: kButtonLabelSB,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (_page > 1 || page.hasMore)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: kScreenPaddingH,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton(
+                                onPressed: _page > 1
+                                    ? () => setState(() => _page--)
+                                    : null,
+                                child: const Text('Previous'),
+                              ),
+                              Text('Page $_page', style: kCaption12R),
+                              TextButton(
+                                onPressed: page.hasMore
+                                    ? () => setState(() => _page++)
+                                    : null,
+                                child: const Text('Next'),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
+                    ],
                   );
                 },
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? kSecondaryColor
-              : kSecondaryColor.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: kSecondaryColor),
-        ),
-        child: Text(
-          label,
-          style: kCaption12M.copyWith(
-            color: selected ? kTextColor : kSecondaryTextColor,
-            height: 1.2,
-          ),
         ),
       ),
     );

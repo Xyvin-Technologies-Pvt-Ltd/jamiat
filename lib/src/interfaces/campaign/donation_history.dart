@@ -228,101 +228,109 @@ class DonationHistoryScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(donationHistoryProvider),
           builder: (data) {
             final grouped = _groupByDate(data.donations);
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: kScreenPaddingH,
-                vertical: 16,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _circleButton(
-                        onTap: () {
-                          HapticHelper.impact(HapticImpact.light);
-                          Navigator.pop(context);
-                        },
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: kTextColor,
-                          size: 20,
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          'My Donations',
-                          textAlign: TextAlign.center,
-                          style: kSectionTitleSB,
-                        ),
-                      ),
-                      _circleButton(
-                        onTap: () {
-                          HapticHelper.impact(HapticImpact.light);
-                          // UI affordance from Figma — export wiring not in scope
-                        },
-                        child: const Icon(
-                          Icons.download_outlined,
-                          color: kTextColor,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Total Donated',
-                          formatRupee(data.summary.totalDonated),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Campaigns',
-                          '${data.summary.participatedCampaigns}',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  if (data.donations.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 48),
-                      child: Center(
-                        child: Text('No donations yet', style: kEmptyStateM),
-                      ),
-                    )
-                  else
-                    ...grouped.map((group) {
-                      final groupTotal = group.donations.fold<num>(
-                        0,
-                        (sum, d) => sum + d.amount,
-                      );
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(group.label, style: kBodyTitleSB),
-                              Text(
-                                formatRupee(groupTotal),
-                                style: kCaption12R.copyWith(
-                                  color: kSecondaryTextColor,
-                                ),
-                              ),
-                            ],
+            return RefreshIndicator(
+              color: kPrimaryColor,
+              onRefresh: () async {
+                ref.invalidate(donationHistoryProvider);
+                await ref.read(donationHistoryProvider.future);
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: kScreenPaddingH,
+                  vertical: 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _circleButton(
+                          onTap: () {
+                            HapticHelper.impact(HapticImpact.light);
+                            Navigator.pop(context);
+                          },
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: kTextColor,
+                            size: 20,
                           ),
-                          const SizedBox(height: 12),
-                          ...group.donations.map(_buildHistoryCard),
-                          const SizedBox(height: 24),
-                        ],
-                      );
-                    }),
-                ],
+                        ),
+                        Expanded(
+                          child: Text(
+                            'My Donations',
+                            textAlign: TextAlign.center,
+                            style: kSectionTitleSB,
+                          ),
+                        ),
+                        _circleButton(
+                          onTap: () {
+                            HapticHelper.impact(HapticImpact.light);
+                            // UI affordance from Figma — export wiring not in scope
+                          },
+                          child: const Icon(
+                            Icons.download_outlined,
+                            color: kTextColor,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            'Total Donated',
+                            formatRupee(data.summary.totalDonated),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Campaigns',
+                            '${data.summary.participatedCampaigns}',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    if (data.donations.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: Center(
+                          child: Text('No donations yet', style: kEmptyStateM),
+                        ),
+                      )
+                    else
+                      ...grouped.map((group) {
+                        final groupTotal = group.donations.fold<num>(
+                          0,
+                          (sum, d) => sum + d.amount,
+                        );
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(group.label, style: kBodyTitleSB),
+                                Text(
+                                  formatRupee(groupTotal),
+                                  style: kCaption12R.copyWith(
+                                    color: kSecondaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            ...group.donations.map(_buildHistoryCard),
+                            const SizedBox(height: 24),
+                          ],
+                        );
+                      }),
+                  ],
+                ),
               ),
             );
           },

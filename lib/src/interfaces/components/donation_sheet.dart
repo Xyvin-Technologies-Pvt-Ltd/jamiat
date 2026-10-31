@@ -395,6 +395,8 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     }
 
     ref.invalidate(myAutopaysProvider);
+    // Autopay charges create Donation docs — refresh history so they appear.
+    ref.invalidate(donationHistoryProvider);
     Navigator.of(context).pop();
 
     final now = DateTime.now();

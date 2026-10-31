@@ -82,6 +82,7 @@ void invalidateSessionCaches(WidgetRef ref) {
   ref.invalidate(notificationsProvider);
   ref.invalidate(receivedEnquiriesProvider);
   ref.invalidate(empowermentProgramsProvider('all'));
+  ref.invalidate(empowermentSearchProvider);
   ref.invalidate(empowermentProgramsProvider('applied'));
   ref.invalidate(empowermentProgramsProvider('saved'));
 }

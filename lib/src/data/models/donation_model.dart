@@ -32,6 +32,12 @@ class DonationModel {
   static bool _parseHasAutopay(dynamic value) {
     if (value == null || value == false) return false;
     if (value is bool) return value;
+    // ObjectId string / nested autopay object from history API.
+    if (value is Map) return value.isNotEmpty;
+    final text = value.toString().trim();
+    if (text.isEmpty || text == 'null' || text == 'undefined' || text == 'false') {
+      return false;
+    }
     return true;
   }
 

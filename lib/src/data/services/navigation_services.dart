@@ -34,7 +34,7 @@ class NavigationService {
 
   Future<dynamic> pushRemoveUntil(Widget child) {
     return navigatorKey.currentState!.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => child),
+      navigatAnimated(child),
       (route) => false,
     );
   }
@@ -49,15 +49,27 @@ class NavigationService {
     return navigatorKey.currentState!.popAndPushNamed(routeName);
   }
 
-  Route navigatAnimated(Widget child) {
+  Route navigatAnimated(
+    Widget child, {
+    bool fade = false,
+    Duration duration = const Duration(milliseconds: 300),
+  }) {
     return PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 200),
+      transitionDuration: duration,
+      reverseTransitionDuration: duration,
       pageBuilder: (context, animation, secondaryAnimation) => child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        const begin = Offset(0.0, 1.0);
+        if (fade) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(opacity: curved, child: child);
+        }
+        const begin = Offset(1.0, 0.0);
         const end = Offset.zero;
         const curve = Curves.easeOutCubic;
-        var tween = Tween(
+        final tween = Tween(
           begin: begin,
           end: end,
         ).chain(CurveTween(curve: curve));

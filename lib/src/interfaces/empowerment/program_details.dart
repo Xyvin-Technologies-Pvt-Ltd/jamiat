@@ -62,6 +62,7 @@ class _ProgramDetailsScreenState extends ConsumerState<ProgramDetailsScreen> {
       }
       ref.invalidate(empowermentProgramDetailProvider(widget.programId));
       ref.invalidate(empowermentProgramsProvider('all'));
+      ref.invalidate(empowermentSearchProvider);
       ref.invalidate(empowermentProgramsProvider('saved'));
     } finally {
       if (mounted) setState(() => _bookmarkLoading = false);
@@ -79,6 +80,7 @@ class _ProgramDetailsScreenState extends ConsumerState<ProgramDetailsScreen> {
       if (res.success) {
         ref.invalidate(empowermentProgramDetailProvider(widget.programId));
         ref.invalidate(empowermentProgramsProvider('all'));
+        ref.invalidate(empowermentSearchProvider);
         ref.invalidate(empowermentProgramsProvider('applied'));
         ScaffoldMessenger.of(
           context,

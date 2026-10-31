@@ -107,13 +107,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _showMessage(response.message ?? 'OTP sent successfully.');
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => OTPScreen(
+      NavigationService().navigatAnimated(
+        OTPScreen(
           phoneNumber: digits,
           dialCode: _dialCode,
           fullPhoneNumber: phone,
           otpVia: otpVia,
         ),
+        fade: true,
+        duration: const Duration(milliseconds: 500),
       ),
     );
   }

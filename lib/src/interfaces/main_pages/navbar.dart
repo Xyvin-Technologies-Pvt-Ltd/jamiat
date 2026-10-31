@@ -10,6 +10,7 @@ import 'package:jamiat/src/data/router/nav_router.dart';
 import 'package:jamiat/src/data/services/haptic_helper.dart';
 import 'package:jamiat/src/data/services/get_fcm.dart';
 import 'package:jamiat/src/data/services/deep_link_service.dart';
+import 'package:jamiat/src/interfaces/animations/page_load_animation.dart';
 import 'package:jamiat/src/interfaces/components/profile_avatar.dart';
 import 'package:jamiat/src/interfaces/main_pages/donate.dart';
 import 'package:jamiat/src/interfaces/main_pages/home.dart';
@@ -113,7 +114,11 @@ class _NavBarState extends ConsumerState<NavBar> {
       },
       child: Scaffold(
         backgroundColor: kWhite,
-        body: _pages.elementAt(pageIndex),
+        // Replay the entrance each time a tab is selected. The bar stays fixed.
+        body: PageLoadAnimation(
+          key: ValueKey(pageIndex),
+          child: _pages.elementAt(pageIndex),
+        ),
         // Figma BottomNav: shadow 7/-1/18 @ 18% · pt 8 · pb 24 · gap 6 · label 10
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
