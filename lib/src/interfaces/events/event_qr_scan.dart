@@ -107,14 +107,15 @@ class _EventQrScanScreenState extends ConsumerState<EventQrScanScreen> {
       });
       await Future<void>.delayed(const Duration(milliseconds: 1600));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _statusMessage = null;
-      });
-      try {
-        await _controller.start();
-      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _statusMessage = null;
+        });
+        try {
+          await _controller.start();
+        } catch (_) {}
+      }
     }
   }
 
