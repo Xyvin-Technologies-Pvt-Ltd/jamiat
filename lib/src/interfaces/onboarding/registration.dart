@@ -1328,7 +1328,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     }
 
     final size = MediaQuery.sizeOf(context);
-    final topInset = MediaQuery.paddingOf(context).top;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final scale = (size.width / _figmaWidth).clamp(0.88, 1.12);
     final topPadding = size.height * (70 / 874);
