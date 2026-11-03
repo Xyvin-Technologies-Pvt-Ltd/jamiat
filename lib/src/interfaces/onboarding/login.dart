@@ -229,13 +229,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: kWhite.withValues(alpha: 0.08),
-                    border: Border.all(color: kGrey, width: 1.25),
+                    // border: Border.all(color: kGrey, width: 1.25),
                   ),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: kTextColor,
-                    size: 20,
-                  ),
+                  // child: const Icon(
+                  //   Icons.arrow_back,
+                  //   color: kTextColor,
+                  //   size: 20,
+                  // ),
                 ),
               ),
               const SizedBox(height: 32),
