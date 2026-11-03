@@ -772,6 +772,10 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Figma stat tiles: pad 16 · radius 8 · label 12 Bold/#6d6d6d · value 19 SB primary
+    // Reserve 2 label lines so a wrapping title (e.g. PARTICIPATED CAMPAIGNS)
+    // does not push its value below the sibling tile.
+    const labelHeight = kSize12 * 1.3 * 2;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -782,15 +786,18 @@ class _StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: kCaption12SB.copyWith(
-              color: kMutedText,
-              fontWeight: kBold,
-              height: 1.3,
+          SizedBox(
+            height: labelHeight,
+            child: Text(
+              label,
+              style: kCaption12SB.copyWith(
+                color: kMutedText,
+                fontWeight: kBold,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           Text(
