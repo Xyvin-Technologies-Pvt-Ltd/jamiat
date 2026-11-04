@@ -69,9 +69,8 @@ class EventModel {
 
   /// True when the event's calendar day (or multi-day range) is over.
   ///
-  /// Uses [startDate] as the event day. [endDate] is only used when it falls
-  /// on the same day or within 14 days after start (real multi-day events).
-  /// Far-future end dates are ignored so registration closes after the event day.
+  /// Uses [endDate] when it is on/after [startDate] (ongoing multi-day events).
+  /// Falls back to [startDate] when end is missing or before start.
   bool get hasEnded {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -83,11 +82,11 @@ class EventModel {
     if (start != null && end != null) {
       final startDay = DateTime(start.year, start.month, start.day);
       final endDay = DateTime(end.year, end.month, end.day);
-      final spanDays = endDay.difference(startDay).inDays;
-      if (spanDays >= 0 && spanDays <= 14) {
+      // Valid range (including multi-week events like Nov 4–25).
+      if (!endDay.isBefore(startDay)) {
         lastMoment = end.isAfter(start) ? end : start;
       } else {
-        // Missing/invalid end (before start or far future) → event day = start
+        // End before start → treat as single-day on start
         lastMoment = start;
       }
     } else {

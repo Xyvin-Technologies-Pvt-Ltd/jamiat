@@ -1489,11 +1489,12 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   hintText: 'Enter email',
                   keyboardType: TextInputType.emailAddress,
                   validator: (val) {
-                    if (val != null &&
-                        val.trim().isNotEmpty &&
-                        !RegExp(
-                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                        ).hasMatch(val.trim())) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Email is required';
+                    }
+                    if (!RegExp(
+                      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                    ).hasMatch(val.trim())) {
                       return 'Please enter a valid email';
                     }
                     return null;
