@@ -133,12 +133,16 @@ class _WelfareDetailsScreenState extends ConsumerState<WelfareDetailsScreen> {
         (service.targetLabel != null && service.targetLabel!.isNotEmpty) ||
         service.targetYear != null;
     final targetTitle = service.targetYear != null
-        ? 'Target for ${service.targetYear} Years'
+        ? 'Target for ${service.targetYear} Year'
         : 'Target';
     final targetSub =
         service.targetLabel?.isNotEmpty == true ? service.targetLabel! : '';
     final screenW = MediaQuery.sizeOf(context).width;
-    final statWidth = (screenW - (kScreenPaddingH * 2) - 20) / 3;
+    final impactCount = service.impactStatus.length;
+    final statColumns = impactCount.clamp(1, 3);
+    final statGapTotal = 10.0 * (statColumns - 1);
+    final statWidth =
+        (screenW - (kScreenPaddingH * 2) - statGapTotal) / statColumns;
 
     return RefreshIndicator(
       color: kPrimaryColor,
@@ -207,10 +211,15 @@ class _WelfareDetailsScreenState extends ConsumerState<WelfareDetailsScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Text(
-                          stat.status,
-                          style: kSectionTitle19SB.copyWith(
-                            color: kSecondaryColor,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            stat.status,
+                            maxLines: 1,
+                            style: kSectionTitle19SB.copyWith(
+                              color: kSecondaryColor,
+                            ),
                           ),
                         ),
                       ],
