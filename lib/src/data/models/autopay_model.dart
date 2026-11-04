@@ -48,17 +48,17 @@ class AutopayModel {
       campaignId: campaignId,
       campaignName: campaignName,
       nextPayment: json['next_payment'] != null
-          ? DateTime.tryParse(json['next_payment'].toString())
+          ? DateTime.tryParse(json['next_payment'].toString())?.toLocal()
           : null,
       lastPayment: json['last_payment'] != null
-          ? DateTime.tryParse(json['last_payment'].toString())
+          ? DateTime.tryParse(json['last_payment'].toString())?.toLocal()
           : null,
       totalDonated: json['total_donated'] as num?,
       paymentsDone: (json['payments_done'] as num?)?.toInt(),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : (json['created_at'] != null
-                ? DateTime.tryParse(json['created_at'].toString())
+                ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
                 : null),
     );
   }
@@ -109,9 +109,9 @@ class AutopayTransactionModel {
       amount: json['amount'] ?? 0,
       status: (json['status'] ?? '').toString(),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : (json['created_at'] != null
-                ? DateTime.tryParse(json['created_at'].toString())
+                ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
                 : null),
     );
   }
@@ -151,10 +151,10 @@ class AutopayHistoryResult {
     return AutopayHistoryResult(
       transactions: txs,
       nextPayment: mandateMap?['next_payment'] != null
-          ? DateTime.tryParse(mandateMap!['next_payment'].toString())
+          ? DateTime.tryParse(mandateMap!['next_payment'].toString())?.toLocal()
           : null,
       lastPayment: mandateMap?['last_payment'] != null
-          ? DateTime.tryParse(mandateMap!['last_payment'].toString())
+          ? DateTime.tryParse(mandateMap!['last_payment'].toString())?.toLocal()
           : null,
       period: mandateMap?['period']?.toString(),
       amount: mandateMap?['amount'] as num?,

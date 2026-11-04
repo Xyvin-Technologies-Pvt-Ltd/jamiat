@@ -29,7 +29,7 @@ class NotificationModel {
       image: json['image']?.toString(),
       link: json['link']?.toString(),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : null,
     );
   }

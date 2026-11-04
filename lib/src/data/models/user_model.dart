@@ -84,7 +84,7 @@ class UserModel {
       country: json['country']?.toString(),
       pincode: (json['pincode'] as num?)?.toInt(),
       dob: json['dob'] != null
-          ? DateTime.tryParse(json['dob'].toString())
+          ? DateTime.tryParse(json['dob'].toString())?.toLocal()
           : null,
       qrCode: json['qr_code']?.toString(),
     );

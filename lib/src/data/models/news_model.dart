@@ -23,7 +23,7 @@ class NewsModel {
       subTitle: json['sub_title']?.toString(),
       image: json['image']?.toString(),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : null,
     );
   }

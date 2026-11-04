@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jamiat/src/data/apis/donation_api.dart';
 import 'package:jamiat/src/data/constants/color_constants.dart';
 import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/models/donation_model.dart';
 import 'package:jamiat/src/data/providers/donation_provider.dart';
+import 'package:jamiat/src/data/services/api_logger.dart';
+import 'package:jamiat/src/data/services/donation_history_download_service.dart';
 import 'package:jamiat/src/data/services/haptic_helper.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
 import 'package:jamiat/src/interfaces/components/async_content.dart';
 import 'package:jamiat/src/interfaces/components/campaign_card.dart';
 
-class DonationHistoryScreen extends ConsumerWidget {
+class DonationHistoryScreen extends ConsumerStatefulWidget {
   const DonationHistoryScreen({super.key});
+
+  @override
+  ConsumerState<DonationHistoryScreen> createState() =>
+      _DonationHistoryScreenState();
+}
+
+class _DonationHistoryScreenState extends ConsumerState<DonationHistoryScreen> {
+  final DonationHistoryDownloadService _downloadService =
+      const DonationHistoryDownloadService();
+  bool _isDownloading = false;
 
   Widget _circleButton({required Widget child, VoidCallback? onTap}) {
     return GestureDetector(
@@ -193,7 +206,8 @@ class DonationHistoryScreen extends ConsumerWidget {
         undated.add(donation);
         continue;
       }
-      final dayKey = DateTime(date.year, date.month, date.day);
+      final local = date.toLocal();
+      final dayKey = DateTime(local.year, local.month, local.day);
       dated.putIfAbsent(dayKey, () => []).add(donation);
     }
 
@@ -216,8 +230,66 @@ class DonationHistoryScreen extends ConsumerWidget {
     return result;
   }
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<void> _downloadHistory({required bool hasDonations}) async {
+    if (_isDownloading) return;
+    HapticHelper.impact(HapticImpact.light);
+
+    if (!hasDonations) {
+      _showMessage('No donations to download yet.');
+      return;
+    }
+
+    ApiLogger.info('Downloading donation history PDF');
+    setState(() => _isDownloading = true);
+    try {
+      final response = await ref.read(donationApiProvider).downloadHistory();
+      if (!mounted) return;
+
+      if (!response.success || response.data == null) {
+        _showMessage(
+          response.message ?? 'Unable to download donation history.',
+        );
+        return;
+      }
+
+      final data = response.data!;
+      final rawUrl =
+          (data['pdf_url'] ?? data['url'] ?? data['download_url'] ?? '')
+              .toString()
+              .trim();
+
+      if (rawUrl.isEmpty) {
+        _showMessage('Donation history PDF is not available yet.');
+        return;
+      }
+
+      final result = await _downloadService.savePdfFromUrl(rawUrl);
+      if (!mounted) return;
+
+      _showMessage(
+        result.message ??
+            (result.isSuccess
+                ? 'PDF saved to Downloads.'
+                : 'Unable to save donation history PDF.'),
+      );
+    } catch (e) {
+      if (mounted) {
+        _showMessage(e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final historyAsync = ref.watch(donationHistoryProvider);
 
     return Scaffold(
@@ -264,15 +336,25 @@ class DonationHistoryScreen extends ConsumerWidget {
                           ),
                         ),
                         _circleButton(
-                          onTap: () {
-                            HapticHelper.impact(HapticImpact.light);
-                            // UI affordance from Figma — export wiring not in scope
-                          },
-                          child: const Icon(
-                            Icons.download_outlined,
-                            color: kTextColor,
-                            size: 20,
-                          ),
+                          onTap: _isDownloading
+                              ? null
+                              : () => _downloadHistory(
+                                  hasDonations: data.donations.isNotEmpty,
+                                ),
+                          child: _isDownloading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: kPrimaryColor,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.download_outlined,
+                                  color: kTextColor,
+                                  size: 20,
+                                ),
                         ),
                       ],
                     ),

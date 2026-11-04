@@ -309,7 +309,7 @@ class EventScanResult {
       alreadyAttended: json['already_attended'] == true,
       ticketCode: (json['ticket_code'] ?? '').toString(),
       attendedAt: json['attended_at'] != null
-          ? DateTime.tryParse(json['attended_at'].toString())
+          ? DateTime.tryParse(json['attended_at'].toString())?.toLocal()
           : null,
       attendeeName: userMap['name']?.toString(),
       eventTitle: eventMap['title']?.toString(),

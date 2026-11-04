@@ -26,7 +26,7 @@ class EmpowermentProgramModel {
       isApplied: _parseIsApplied(json),
       image: json['image']?.toString(),
       startDate: json['start_date'] != null
-          ? DateTime.tryParse(json['start_date'].toString())
+          ? DateTime.tryParse(json['start_date'].toString())?.toLocal()
           : null,
     );
   }

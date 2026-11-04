@@ -1359,6 +1359,7 @@ class _ContributeButton extends StatelessWidget {
 
 String _formatNewsDate(DateTime? date) {
   if (date == null) return '';
+  final local = date.toLocal();
   const months = [
     'January',
     'February',
@@ -1373,5 +1374,5 @@ String _formatNewsDate(DateTime? date) {
     'November',
     'December',
   ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
 }

@@ -103,7 +103,7 @@ class _DonationSuccessScreenState extends ConsumerState<DonationSuccessScreen> {
 
   String get _date {
     final rawDate = _receiptValue('paid_at');
-    final parsedDate = DateTime.tryParse(rawDate);
+    final parsedDate = DateTime.tryParse(rawDate)?.toLocal();
     if (parsedDate == null) return widget.date;
     return '${parsedDate.day.toString().padLeft(2, '0')}/'
         '${parsedDate.month.toString().padLeft(2, '0')}/${parsedDate.year}';

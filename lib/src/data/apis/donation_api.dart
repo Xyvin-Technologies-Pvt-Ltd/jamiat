@@ -143,6 +143,32 @@ class DonationApi {
     }
     return ApiResponse.success(data, response.statusCode ?? 200);
   }
+
+  Future<ApiResponse<Map<String, dynamic>>> downloadHistory({
+    String status = 'success',
+  }) async {
+    final response = await _api.get(
+      '/donation/history/download',
+      requireAuth: true,
+      queryParams: {
+        if (status.isNotEmpty) 'status': status,
+      },
+    );
+    if (!response.success) {
+      return ApiResponse.error(
+        response.message ?? 'Failed to download donation history',
+        response.statusCode,
+      );
+    }
+    final data = nestedData(response.data);
+    if (data == null) {
+      return ApiResponse.error(
+        'Invalid download response',
+        response.statusCode,
+      );
+    }
+    return ApiResponse.success(data, response.statusCode ?? 200);
+  }
 }
 
 final donationApiProvider = Provider<DonationApi>(

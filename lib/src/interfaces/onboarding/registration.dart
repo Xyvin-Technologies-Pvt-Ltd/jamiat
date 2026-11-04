@@ -131,9 +131,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   String _formatDob(DateTime? dob) {
     if (dob == null) return '';
-    final day = dob.day.toString().padLeft(2, '0');
-    final month = dob.month.toString().padLeft(2, '0');
-    return '$day/$month/${dob.year}';
+    final local = dob.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return '$day/$month/${local.year}';
   }
 
   void _prefillFromUser(UserModel user) {

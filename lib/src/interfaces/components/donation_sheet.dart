@@ -367,7 +367,7 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
   }
 
   String _formatDonationDate(DateTime? date) {
-    final value = date ?? DateTime.now();
+    final value = (date ?? DateTime.now()).toLocal();
     return '${value.day.toString().padLeft(2, '0')}/'
         '${value.month.toString().padLeft(2, '0')}/${value.year}';
   }

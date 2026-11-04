@@ -78,10 +78,10 @@ class DonationModel {
           coverImage,
       message: json['message']?.toString(),
       paidAt: json['paid_at'] != null
-          ? DateTime.tryParse(json['paid_at'].toString())
+          ? DateTime.tryParse(json['paid_at'].toString())?.toLocal()
           : null,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : null,
       transactionId:
           (json['gateway_payment_id'] ??

@@ -62,7 +62,7 @@ class CampaignModel {
       isCompleted: json['is_completed'] == true,
       status: json['status']?.toString(),
       targetDate: json['target_date'] != null
-          ? DateTime.tryParse(json['target_date'].toString())
+          ? DateTime.tryParse(json['target_date'].toString())?.toLocal()
           : null,
     );
   }

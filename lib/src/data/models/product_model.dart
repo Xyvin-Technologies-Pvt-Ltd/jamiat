@@ -116,7 +116,7 @@ class ProductEnquiryModel {
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       product: ProductModel.fromJson(productMap),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : null,
     );
   }

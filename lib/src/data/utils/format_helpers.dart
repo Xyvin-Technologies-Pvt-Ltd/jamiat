@@ -30,16 +30,18 @@ String formatDobForApi(String ddMmYyyy) {
 
 String formatDobForUi(DateTime? date) {
   if (date == null) return '';
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day/$month/${date.year}';
+  final local = date.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  return '$day/$month/${local.year}';
 }
 
 String formatDateLabel(DateTime? date) {
   if (date == null) return '';
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day/$month/${date.year}';
+  final local = date.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  return '$day/$month/${local.year}';
 }
 
 const _monthLabels = [
@@ -58,22 +60,25 @@ const _monthLabels = [
 ];
 
 String formatDonationGroupLabel(DateTime date) {
+  final local = date.toLocal();
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final target = DateTime(date.year, date.month, date.day);
+  final target = DateTime(local.year, local.month, local.day);
   final diff = today.difference(target).inDays;
   if (diff == 0) return 'Today';
   if (diff == 1) return 'Yesterday';
-  return '${_monthLabels[date.month - 1]} ${date.day}';
+  return '${_monthLabels[local.month - 1]} ${local.day}';
 }
 
+/// API dates arrive as UTC ISO; format in device local timezone.
 String formatDonationDateTime(DateTime date) {
-  final day = date.day.toString().padLeft(2, '0');
-  final month = _monthLabels[date.month - 1];
-  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-  final minute = date.minute.toString().padLeft(2, '0');
-  final period = date.hour >= 12 ? 'pm' : 'am';
-  return '$day $month, ${date.year} • $hour:$minute $period';
+  final local = date.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = _monthLabels[local.month - 1];
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final period = local.hour >= 12 ? 'pm' : 'am';
+  return '$day $month, ${local.year} • $hour:$minute $period';
 }
 
 const _monthLabelsFull = [
@@ -92,7 +97,8 @@ const _monthLabelsFull = [
 ];
 
 String formatTargetDate(DateTime date) {
-  return '${date.day} ${_monthLabelsFull[date.month - 1]}, ${date.year}';
+  final local = date.toLocal();
+  return '${local.day} ${_monthLabelsFull[local.month - 1]}, ${local.year}';
 }
 
 /// API dates arrive as UTC ISO; always format in the device local timezone
