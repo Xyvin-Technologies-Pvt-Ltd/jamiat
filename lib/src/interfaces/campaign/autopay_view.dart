@@ -46,6 +46,15 @@ class _AutopayViewScreenState extends ConsumerState<AutopayViewScreen> {
     return s == 'active' || s == 'ongoing' || s == 'paused';
   }
 
+  /// Checkout inserts a pending row before Razorpay finishes. Leaving the
+  /// checkout does not create a mandate, so those rows are not listed.
+  bool _isListed(AutopayModel a) {
+    final s = a.status.toLowerCase();
+    if (s == 'pending' || s == 'created') return false;
+    if (s == 'cancelled' && (a.paymentsDone ?? 0) == 0) return false;
+    return true;
+  }
+
   Widget _buildCampaignCard(AutopayModel autopay) {
     return GestureDetector(
       onTap: () {
@@ -208,7 +217,11 @@ class _AutopayViewScreenState extends ConsumerState<AutopayViewScreen> {
                   onRetry: () => ref.invalidate(myAutopaysProvider),
                   builder: (items) {
                     final filtered = items
-                        .where((a) => _isOngoing ? _isActive(a) : !_isActive(a))
+                        .where(
+                          (a) =>
+                              _isListed(a) &&
+                              (_isOngoing ? _isActive(a) : !_isActive(a)),
+                        )
                         .toList();
                     if (filtered.isEmpty) {
                       return Center(

@@ -274,15 +274,6 @@ class _CampaignsHeader extends StatelessWidget {
                   style: kStyle(kMedium, 15, color: const Color(0xFF888888)),
                 ),
               ),
-              const PopupMenuDivider(height: 1),
-              PopupMenuItem<String>(
-                value: 'saved',
-                height: 44,
-                child: Text(
-                  'Saved',
-                  style: kStyle(kMedium, 15, color: const Color(0xFF888888)),
-                ),
-              ),
             ],
           ),
         ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -105,6 +106,18 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     super.dispose();
   }
 
+  /// Create-autopay stores a pending row before checkout. Leaving Razorpay
+  /// without paying must cancel it, or the next setup is rejected as active.
+  Future<void> _releaseAbandonedAutopay(String autopayId) async {
+    final api = ref.read(autopayApiProvider);
+    try {
+      await api.cancelAutopay(autopayId);
+    } catch (e) {
+      log('Abandoned autopay cancel failed: $e', name: 'DonationSheet');
+    }
+    if (mounted) ref.invalidate(myAutopaysProvider);
+  }
+
   void _onPresetSelected(int index, int amount) {
     HapticHelper.impact(HapticImpact.light);
     setState(() {
@@ -192,6 +205,12 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
       }
     } catch (e) {
       log('Payment start failed: $e', name: 'DonationSheet');
+      final abandonedAutopayId = _pendingAutopayId;
+      _pendingAutopayId = null;
+      _pendingSubscriptionId = null;
+      if (abandonedAutopayId != null) {
+        unawaited(_releaseAbandonedAutopay(abandonedAutopayId));
+      }
       if (mounted) setState(() => _isProcessing = false);
       _showError(e.toString().replaceFirst('Exception: ', ''));
     }
@@ -245,10 +264,40 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     );
   }
 
+  bool _isBlockedByExistingAutopay(String message) {
+    return message.toLowerCase().contains('already exist');
+  }
+
+  /// A checkout that was closed before payment leaves a pending row. The
+  /// create API treats that row as an active mandate, so clear it and retry.
+  Future<bool> _releaseUnfinishedAutopays(String campaignId) async {
+    final api = ref.read(autopayApiProvider);
+    final response = await api.getMyAutopays();
+    final title = widget.categoryTitle.trim().toLowerCase();
+    final unfinished = (response.data ?? const []).where((autopay) {
+      final status = autopay.status.toLowerCase();
+      if (status != 'pending' && status != 'created') return false;
+      if ((autopay.paymentsDone ?? 0) > 0) return false;
+      final id = autopay.campaignId;
+      if (id != null && id.isNotEmpty) return id == campaignId;
+      final name = (autopay.campaignName ?? '').trim().toLowerCase();
+      return name.isNotEmpty && name == title;
+    });
+
+    var released = false;
+    for (final autopay in unfinished) {
+      final cancel = await api.cancelAutopay(autopay.id);
+      if (cancel.success) released = true;
+    }
+    if (released && mounted) ref.invalidate(myAutopaysProvider);
+    return released;
+  }
+
   Future<void> _startAutopay({
     required String campaignId,
     required num amount,
     required String message,
+    bool recoverExisting = true,
   }) async {
     log(
       'Creating autopay: campaign=$campaignId amount=$amount '
@@ -265,8 +314,20 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
         );
 
     if (!createResponse.success || createResponse.data == null) {
+      final errorMessage = createResponse.message ?? 'Failed to create autopay';
+      if (recoverExisting && _isBlockedByExistingAutopay(errorMessage)) {
+        final released = await _releaseUnfinishedAutopays(campaignId);
+        if (released && mounted) {
+          return _startAutopay(
+            campaignId: campaignId,
+            amount: amount,
+            message: message,
+            recoverExisting: false,
+          );
+        }
+      }
       if (mounted) setState(() => _isProcessing = false);
-      _showError(createResponse.message ?? 'Failed to create autopay');
+      _showError(errorMessage);
       return;
     }
 
@@ -377,13 +438,24 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     // Prefer the subscription id from create-autopay; Razorpay's orderId
     // field is for one-time orders and can break HMAC verification.
     final subscriptionId = _pendingSubscriptionId ?? response.orderId ?? '';
+    final paymentId = response.paymentId ?? '';
+    final signature = response.signature ?? '';
+    if (subscriptionId.isEmpty || paymentId.isEmpty || signature.isEmpty) {
+      _pendingAutopayId = null;
+      _pendingSubscriptionId = null;
+      if (mounted) setState(() => _isProcessing = false);
+      unawaited(_releaseAbandonedAutopay(autopayId));
+      _showError('Autopay setup was not completed.');
+      return;
+    }
+
     final verify = await ref
         .read(autopayApiProvider)
         .verifyAutopay(
           autopayId: autopayId,
           razorpaySubscriptionId: subscriptionId,
-          razorpayPaymentId: response.paymentId ?? '',
-          razorpaySignature: response.signature ?? '',
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature,
         );
 
     if (!mounted) return;
@@ -424,10 +496,14 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     );
     // Pending donation stays `pending` server-side — jamiat verify-payment
     // requires a valid Razorpay HMAC, so we cannot mark failed from the client.
+    final abandonedAutopayId = _pendingAutopayId;
     _pendingDonationId = null;
     _pendingRazorpayOrderId = null;
     _pendingAutopayId = null;
     _pendingSubscriptionId = null;
+    if (abandonedAutopayId != null) {
+      unawaited(_releaseAbandonedAutopay(abandonedAutopayId));
+    }
 
     if (!mounted) return;
     setState(() => _isProcessing = false);

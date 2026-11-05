@@ -239,7 +239,7 @@ class _SavedDonationsScreenState extends ConsumerState<SavedDonationsScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Saved Donations',
+                    'Saved Campaigns',
                     style: kSectionTitleSB,
                   ),
                 ],
@@ -286,7 +286,7 @@ class _SavedDonationsScreenState extends ConsumerState<SavedDonationsScreen> {
                     if (campaigns.isEmpty) {
                       return Center(
                         child: Text(
-                          'No saved donations found',
+                          'No saved campaigns found',
                           style: kEmptyStateM,
                         ),
                       );

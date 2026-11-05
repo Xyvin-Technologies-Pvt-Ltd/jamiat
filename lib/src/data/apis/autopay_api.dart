@@ -69,7 +69,11 @@ class AutopayApi {
   }
 
   Future<ApiResponse<List<AutopayModel>>> getMyAutopays() async {
-    final response = await _api.get('/autopay/my', requireAuth: true);
+    final response = await _api.get(
+      '/autopay/my',
+      requireAuth: true,
+      queryParams: const {'page_no': '1', 'limit': '100'},
+    );
     if (!response.success) {
       return ApiResponse.error(
         response.message ?? 'Failed to load autopays',
