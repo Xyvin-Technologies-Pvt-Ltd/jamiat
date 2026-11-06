@@ -49,7 +49,7 @@ class _AutopayViewScreenState extends ConsumerState<AutopayViewScreen> {
   /// Checkout inserts a pending row before Razorpay finishes. Leaving the
   /// checkout does not create a mandate, so those rows are not listed.
   bool _isListed(AutopayModel a) {
-    final s = a.status.toLowerCase();
+    final s = a.status.toLowerCase().trim();
     if (s == 'pending' || s == 'created') return false;
     if (s == 'cancelled' && (a.paymentsDone ?? 0) == 0) return false;
     return true;

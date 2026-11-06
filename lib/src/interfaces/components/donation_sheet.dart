@@ -264,40 +264,10 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
     );
   }
 
-  bool _isBlockedByExistingAutopay(String message) {
-    return message.toLowerCase().contains('already exist');
-  }
-
-  /// A checkout that was closed before payment leaves a pending row. The
-  /// create API treats that row as an active mandate, so clear it and retry.
-  Future<bool> _releaseUnfinishedAutopays(String campaignId) async {
-    final api = ref.read(autopayApiProvider);
-    final response = await api.getMyAutopays();
-    final title = widget.categoryTitle.trim().toLowerCase();
-    final unfinished = (response.data ?? const []).where((autopay) {
-      final status = autopay.status.toLowerCase();
-      if (status != 'pending' && status != 'created') return false;
-      if ((autopay.paymentsDone ?? 0) > 0) return false;
-      final id = autopay.campaignId;
-      if (id != null && id.isNotEmpty) return id == campaignId;
-      final name = (autopay.campaignName ?? '').trim().toLowerCase();
-      return name.isNotEmpty && name == title;
-    });
-
-    var released = false;
-    for (final autopay in unfinished) {
-      final cancel = await api.cancelAutopay(autopay.id);
-      if (cancel.success) released = true;
-    }
-    if (released && mounted) ref.invalidate(myAutopaysProvider);
-    return released;
-  }
-
   Future<void> _startAutopay({
     required String campaignId,
     required num amount,
     required String message,
-    bool recoverExisting = true,
   }) async {
     log(
       'Creating autopay: campaign=$campaignId amount=$amount '
@@ -314,20 +284,8 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
         );
 
     if (!createResponse.success || createResponse.data == null) {
-      final errorMessage = createResponse.message ?? 'Failed to create autopay';
-      if (recoverExisting && _isBlockedByExistingAutopay(errorMessage)) {
-        final released = await _releaseUnfinishedAutopays(campaignId);
-        if (released && mounted) {
-          return _startAutopay(
-            campaignId: campaignId,
-            amount: amount,
-            message: message,
-            recoverExisting: false,
-          );
-        }
-      }
       if (mounted) setState(() => _isProcessing = false);
-      _showError(errorMessage);
+      _showError(createResponse.message ?? 'Failed to create autopay');
       return;
     }
 
