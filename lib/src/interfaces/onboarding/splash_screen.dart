@@ -164,12 +164,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                                   ? screenSize.responsiveSize(420)
                                   : double.infinity,
                             ),
-                            child: Image.asset(
-                              'assets/pngs/jamiat_splashimage.png',
-                              width: double.infinity,
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
-                            ),
+                            child: const _SplashCollage(),
                           ),
                           SizedBox(height: collageLogoGap),
                           Stack(
@@ -219,4 +214,126 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       ),
     );
   }
+}
+
+/// Staggered 3×2 collage matching the original splash artboard (1484×1288).
+/// Positions 1 (bottom-left) and 2 (bottom-right) use distinct photo assets.
+class _SplashCollage extends StatelessWidget {
+  const _SplashCollage();
+
+  // Fractions measured from the original jamiat_splashimage.png artboard.
+  static const double _aspect = 1484 / 1288;
+  static const double _tileW = 0.304582;
+  // Corner radius ≈ 46px on a 451px tile.
+  static const double _radiusRatio = 46 / 451;
+
+  static const _TileSpec _tl = _TileSpec(
+    left: 0.0,
+    top: 0.096273,
+    width: _tileW,
+    height: 0.397516,
+    asset: 'assets/pngs/splash_tile_tl.png',
+  );
+  static const _TileSpec _tm = _TileSpec(
+    left: 0.347709,
+    top: 0.0,
+    width: _tileW,
+    height: 0.419255,
+    asset: 'assets/pngs/splash_tile_tm.png',
+  );
+  static const _TileSpec _tr = _TileSpec(
+    left: 0.695418,
+    top: 0.096273,
+    width: _tileW,
+    height: 0.310559,
+    asset: 'assets/pngs/splash_tile_tr.png',
+  );
+  // Marked "1" — hands / teamwork photo.
+  static const _TileSpec _bl = _TileSpec(
+    left: 0.0,
+    top: 0.568323,
+    width: _tileW,
+    height: 0.310559,
+    asset: 'assets/pngs/splash1.jpeg',
+    cover: true,
+  );
+  static const _TileSpec _bm = _TileSpec(
+    left: 0.347709,
+    top: 0.518634,
+    width: _tileW,
+    height: 0.481366,
+    asset: 'assets/pngs/splash_tile_bm.png',
+  );
+  // Marked "2" — child studying photo.
+  static const _TileSpec _br = _TileSpec(
+    left: 0.695418,
+    top: 0.481366,
+    width: _tileW,
+    height: 0.397516,
+    asset: 'assets/pngs/splash2.png',
+    cover: true,
+  );
+
+  static const List<_TileSpec> _tiles = [_tl, _tm, _tr, _bl, _bm, _br];
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: _aspect,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          final radius = BorderRadius.circular(w * _tileW * _radiusRatio);
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (final tile in _tiles)
+                Positioned(
+                  left: w * tile.left,
+                  top: h * tile.top,
+                  width: w * tile.width,
+                  height: h * tile.height,
+                  child: tile.cover
+                      ? ClipRRect(
+                          borderRadius: radius,
+                          child: Image.asset(
+                            tile.asset,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        )
+                      : Image.asset(
+                          tile.asset,
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.high,
+                        ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TileSpec {
+  const _TileSpec({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+    required this.asset,
+    this.cover = false,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+  final String asset;
+  final bool cover;
 }
