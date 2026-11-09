@@ -7,6 +7,7 @@ import 'package:jamiat/src/data/apis/user_api.dart';
 import 'package:jamiat/src/data/constants/color_constants.dart';
 import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/router/nav_router.dart';
+import 'package:jamiat/src/data/services/auth_session_service.dart';
 import 'package:jamiat/src/data/services/haptic_helper.dart';
 import 'package:jamiat/src/data/services/get_fcm.dart';
 import 'package:jamiat/src/data/services/deep_link_service.dart';
@@ -36,7 +37,7 @@ class _NavTab {
   });
 }
 
-class _NavBarState extends ConsumerState<NavBar> {
+class _NavBarState extends ConsumerState<NavBar> with WidgetsBindingObserver {
   static const List<_NavTab> _allTabs = [
     _NavTab(pageIndex: 0, icon: 'assets/svg/home_icon.svg', label: 'Home'),
     _NavTab(pageIndex: 1, icon: 'assets/svg/donate.svg', label: 'Donate'),
@@ -48,6 +49,9 @@ class _NavBarState extends ConsumerState<NavBar> {
     ),
   ];
 
+  bool _wasBackgrounded = false;
+  DateTime? _lastContentRefreshAt;
+
   List<_NavTab> _tabsForRole(bool isJamiatMember) {
     if (isJamiatMember) return _allTabs;
     return _allTabs.where((tab) => tab.pageIndex != 2).toList();
@@ -56,6 +60,7 @@ class _NavBarState extends ConsumerState<NavBar> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     DeepLinkService.instance.onSelectNavTab = (index) {
       if (!mounted) return;
       ref.read(selectedIndexProvider.notifier).updateIndex(index);
@@ -68,8 +73,30 @@ class _NavBarState extends ConsumerState<NavBar> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     DeepLinkService.instance.onSelectNavTab = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed || !_wasBackgrounded) return;
+    _wasBackgrounded = false;
+
+    final now = DateTime.now();
+    final last = _lastContentRefreshAt;
+    // Avoid stacking refreshes when OS emits inactive → resumed quickly.
+    if (last != null && now.difference(last) < const Duration(seconds: 8)) {
+      return;
+    }
+    _lastContentRefreshAt = now;
+    refreshContentCaches(ref);
   }
 
   static const List<Widget> _pages = <Widget>[

@@ -6,19 +6,18 @@ import 'package:jamiat/src/data/providers/donation_provider.dart';
 import 'package:jamiat/src/data/providers/news_provider.dart';
 import 'package:jamiat/src/data/providers/welfare_provider.dart';
 
-final homeStatsProvider =
-    FutureProvider<
-      ({UserModel user, num totalDonated, int participatedCampaigns})
-    >((ref) async {
-      final profile = await ref.watch(userProfileProvider.future);
-      final history = await ref.watch(donationHistoryProvider.future);
+final homeStatsProvider = FutureProvider.autoDispose<
+  ({UserModel user, num totalDonated, int participatedCampaigns})
+>((ref) async {
+  final profile = await ref.watch(userProfileProvider.future);
+  final history = await ref.watch(donationHistoryProvider.future);
 
-      return (
-        user: profile,
-        totalDonated: history.summary.totalDonated,
-        participatedCampaigns: history.summary.participatedCampaigns,
-      );
-    });
+  return (
+    user: profile,
+    totalDonated: history.summary.totalDonated,
+    participatedCampaigns: history.summary.participatedCampaigns,
+  );
+});
 
 Future<void> refreshHomeData(WidgetRef ref) async {
   ref.invalidate(userProfileProvider);

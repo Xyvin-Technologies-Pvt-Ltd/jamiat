@@ -16,24 +16,20 @@ class CampaignCategoryFilterNotifier extends Notifier<String> {
   void setCategory(String category) => state = category;
 }
 
-final campaignListProvider =
-    FutureProvider.family<PaginatedResponse<CampaignModel>, int>((
-      ref,
-      pageNo,
-    ) async {
-      final category = ref.watch(campaignCategoryFilterProvider);
-      final response = await ref
-          .watch(campaignApiProvider)
-          .listCampaigns(pageNo: pageNo, limit: 10, category: category);
-      if (!response.success || response.data == null) {
-        throw Exception(response.message ?? 'Failed to load campaigns');
-      }
-      return response.data!;
-    });
+final campaignListProvider = FutureProvider.autoDispose
+    .family<PaginatedResponse<CampaignModel>, int>((ref, pageNo) async {
+  final category = ref.watch(campaignCategoryFilterProvider);
+  final response = await ref
+      .watch(campaignApiProvider)
+      .listCampaigns(pageNo: pageNo, limit: 10, category: category);
+  if (!response.success || response.data == null) {
+    throw Exception(response.message ?? 'Failed to load campaigns');
+  }
+  return response.data!;
+});
 
-final campaignMobileStatsProvider = FutureProvider<CampaignMobileStats>((
-  ref,
-) async {
+final campaignMobileStatsProvider =
+    FutureProvider.autoDispose<CampaignMobileStats>((ref) async {
   final response = await ref.watch(campaignApiProvider).getMobileStats();
   if (!response.success || response.data == null) {
     throw Exception(response.message ?? 'Failed to load campaign stats');
@@ -41,10 +37,8 @@ final campaignMobileStatsProvider = FutureProvider<CampaignMobileStats>((
   return response.data!;
 });
 
-final campaignDetailProvider = FutureProvider.family<CampaignModel, String>((
-  ref,
-  id,
-) async {
+final campaignDetailProvider =
+    FutureProvider.autoDispose.family<CampaignModel, String>((ref, id) async {
   final response = await ref.watch(campaignApiProvider).getCampaignById(id);
   if (!response.success || response.data == null) {
     throw Exception(response.message ?? 'Failed to load campaign');
@@ -52,17 +46,16 @@ final campaignDetailProvider = FutureProvider.family<CampaignModel, String>((
   return response.data!;
 });
 
-final savedCampaignsProvider = FutureProvider<PaginatedResponse<CampaignModel>>(
-  (ref) async {
-    final response = await ref.watch(campaignApiProvider).getSavedCampaigns();
-    if (!response.success || response.data == null) {
-      throw Exception(response.message ?? 'Failed to load saved campaigns');
-    }
-    return response.data!;
-  },
-);
+final savedCampaignsProvider =
+    FutureProvider.autoDispose<PaginatedResponse<CampaignModel>>((ref) async {
+  final response = await ref.watch(campaignApiProvider).getSavedCampaigns();
+  if (!response.success || response.data == null) {
+    throw Exception(response.message ?? 'Failed to load saved campaigns');
+  }
+  return response.data!;
+});
 
-final featuredCampaignsProvider = FutureProvider<List<CampaignModel>>((
+final featuredCampaignsProvider = FutureProvider.autoDispose<List<CampaignModel>>((
   ref,
 ) async {
   final response = await ref
@@ -75,17 +68,17 @@ final featuredCampaignsProvider = FutureProvider<List<CampaignModel>>((
 });
 
 /// Active campaigns for a specific UI/API category label.
-final campaignsByCategoryProvider =
-    FutureProvider.family<List<CampaignModel>, String>((ref, category) async {
-      final response = await ref
-          .watch(campaignApiProvider)
-          .listCampaigns(
-            pageNo: 1,
-            limit: 50,
-            category: category,
-          );
-      if (!response.success || response.data == null) {
-        throw Exception(response.message ?? 'Failed to load campaigns');
-      }
-      return response.data!.items;
-    });
+final campaignsByCategoryProvider = FutureProvider.autoDispose
+    .family<List<CampaignModel>, String>((ref, category) async {
+  final response = await ref
+      .watch(campaignApiProvider)
+      .listCampaigns(
+        pageNo: 1,
+        limit: 50,
+        category: category,
+      );
+  if (!response.success || response.data == null) {
+    throw Exception(response.message ?? 'Failed to load campaigns');
+  }
+  return response.data!.items;
+});

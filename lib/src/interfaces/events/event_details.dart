@@ -13,6 +13,7 @@ import 'package:jamiat/src/data/services/navigation_services.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
 import 'package:jamiat/src/interfaces/components/async_content.dart';
 import 'package:jamiat/src/interfaces/events/event_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class EventDetailsScreen extends ConsumerStatefulWidget {
   final String? eventId;
@@ -225,8 +226,93 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     );
   }
 
-  Widget _metaRow({required IconData icon, required String text}) {
-    return Row(
+  bool _looksLikeUrl(String value) {
+    final trimmed = value.trim().toLowerCase();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('www.') ||
+        trimmed.startsWith('maps.google.') ||
+        trimmed.startsWith('meet.google.') ||
+        trimmed.startsWith('goo.gl/') ||
+        trimmed.startsWith('bit.ly/');
+  }
+
+  Uri? _parseExternalUri(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    final withScheme = _looksLikeUrl(trimmed) &&
+            !trimmed.toLowerCase().startsWith('http://') &&
+            !trimmed.toLowerCase().startsWith('https://')
+        ? 'https://$trimmed'
+        : trimmed;
+
+    final uri = Uri.tryParse(withScheme);
+    if (uri == null || !(uri.hasScheme && uri.host.isNotEmpty)) return null;
+    return uri;
+  }
+
+  Uri? _locationUri(EventModel event) {
+    final isOnline = event.type.toLowerCase() == 'online';
+
+    // Offline events store the maps/location URL in `link` (onlineLink).
+    if (!isOnline) {
+      final link = event.onlineLink?.trim();
+      if (link != null && link.isNotEmpty) {
+        final fromLink = _parseExternalUri(link);
+        if (fromLink != null) return fromLink;
+      }
+    }
+
+    final venue = event.venue?.trim();
+    if (venue == null || venue.isEmpty) return null;
+
+    if (_looksLikeUrl(venue)) {
+      return _parseExternalUri(venue);
+    }
+
+    return Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      <String, String>{'api': '1', 'query': venue},
+    );
+  }
+
+  Future<void> _launchUri(Uri? uri, {String errorMessage = 'Unable to open link'}) async {
+    if (uri == null) return;
+
+    HapticHelper.impact(HapticImpact.light);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  Future<void> _openExternalLink(String? rawUrl) =>
+      _launchUri(_parseExternalUri(rawUrl ?? ''));
+
+  Future<void> _openLocationLink(EventModel event) =>
+      _launchUri(_locationUri(event), errorMessage: 'Unable to open location');
+
+
+  Widget _metaRow({
+    required IconData icon,
+    required String text,
+    VoidCallback? onTap,
+  }) {
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(icon, size: 16, color: kTextColor),
@@ -234,10 +320,22 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         Expanded(
           child: Text(
             text,
-            style: kCaption12R.copyWith(color: kTextColor),
+            style: kCaption12R.copyWith(
+              color: onTap != null ? kPrimaryColor : kTextColor,
+              decoration: onTap != null ? TextDecoration.underline : null,
+              decorationColor: onTap != null ? kPrimaryColor : null,
+            ),
           ),
         ),
       ],
+    );
+
+    if (onTap == null) return row;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: row,
     );
   }
 
@@ -318,10 +416,23 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             _metaRow(
               icon: Icons.location_on_outlined,
               text: event.venue!,
+              onTap: _locationUri(event) != null
+                  ? () => _openLocationLink(event)
+                  : null,
+            ),
+          ] else if (event.type.toLowerCase() != 'online' &&
+              event.onlineLink != null &&
+              event.onlineLink!.isNotEmpty) ...[
+            // Offline events may only have a maps/location link.
+            const SizedBox(height: 8),
+            _metaRow(
+              icon: Icons.location_on_outlined,
+              text: event.onlineLink!,
+              onTap: () => _openExternalLink(event.onlineLink),
             ),
           ],
           // Meeting link is only for registered attendees (not public).
-          if (event.type == 'Online' &&
+          if (event.type.toLowerCase() == 'online' &&
               event.isRegistered == true &&
               event.onlineLink != null &&
               event.onlineLink!.isNotEmpty) ...[
@@ -329,6 +440,7 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             _metaRow(
               icon: Icons.link,
               text: event.onlineLink!,
+              onTap: () => _openExternalLink(event.onlineLink),
             ),
           ],
           const SizedBox(height: 8),
@@ -501,11 +613,21 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
             ),
             Expanded(
               child: hasId
-                  ? AsyncContent(
-                      asyncValue: eventAsync!,
-                      onRetry: () =>
-                          ref.invalidate(eventDetailProvider(widget.eventId!)),
-                      builder: _buildBody,
+                  ? RefreshIndicator(
+                      color: kPrimaryColor,
+                      onRefresh: () async {
+                        ref.invalidate(eventDetailProvider(widget.eventId!));
+                        await ref.read(
+                          eventDetailProvider(widget.eventId!).future,
+                        );
+                      },
+                      child: AsyncContent(
+                        asyncValue: eventAsync!,
+                        onRetry: () => ref.invalidate(
+                          eventDetailProvider(widget.eventId!),
+                        ),
+                        builder: _buildBody,
+                      ),
                     )
                   : _fallbackBody(),
             ),

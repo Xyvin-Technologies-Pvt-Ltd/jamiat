@@ -63,28 +63,43 @@ class AuthSessionService {
 /// Drops cached user-scoped providers so the next login cannot see old data.
 void invalidateSessionCaches(WidgetRef ref) {
   ref.invalidate(userProfileProvider);
+  refreshContentCaches(ref);
+}
+
+/// Invalidates API-backed content so admin-side edits show without app restart.
+///
+/// Safe to call on app resume: watched providers refetch while keeping the
+/// previous value on screen ([skipLoadingOnRefresh]).
+void refreshContentCaches(WidgetRef ref) {
   ref.invalidate(donationHistoryProvider);
   ref.invalidate(homeStatsProvider);
   ref.invalidate(featuredCampaignsProvider);
-  ref.invalidate(campaignListProvider(1));
+  ref.invalidate(campaignListProvider);
   ref.invalidate(campaignMobileStatsProvider);
+  ref.invalidate(campaignDetailProvider);
   ref.invalidate(savedCampaignsProvider);
+  ref.invalidate(campaignsByCategoryProvider);
   ref.invalidate(newsListProvider);
+  ref.invalidate(newsDetailProvider);
   ref.invalidate(welfareListProvider);
+  ref.invalidate(welfareDetailProvider);
   ref.invalidate(productsListProvider);
+  ref.invalidate(productDetailProvider);
   ref.invalidate(savedProductsProvider);
   ref.invalidate(myProductEnquiriesProvider);
   ref.invalidate(eventsListProvider);
+  ref.invalidate(eventDetailProvider);
   ref.invalidate(savedEventsProvider);
-  ref.invalidate(myTicketsProvider('upcoming'));
-  ref.invalidate(myTicketsProvider('past'));
+  ref.invalidate(myTicketsProvider);
+  ref.invalidate(eventTicketProvider);
   ref.invalidate(myAutopaysProvider);
+  ref.invalidate(autopayDetailProvider);
+  ref.invalidate(autopayHistoryProvider);
   ref.invalidate(notificationsProvider);
   ref.invalidate(receivedEnquiriesProvider);
-  ref.invalidate(empowermentProgramsProvider('all'));
+  ref.invalidate(empowermentProgramsProvider);
+  ref.invalidate(empowermentProgramDetailProvider);
   ref.invalidate(empowermentSearchProvider);
-  ref.invalidate(empowermentProgramsProvider('applied'));
-  ref.invalidate(empowermentProgramsProvider('saved'));
 }
 
 final authSessionServiceProvider = Provider<AuthSessionService>((ref) {

@@ -3,8 +3,8 @@ import 'package:jamiat/src/data/apis/empowerment_api.dart';
 import 'package:jamiat/src/data/models/empowerment_model.dart';
 import 'package:jamiat/src/data/models/paginated_response.dart';
 
-final empowermentProgramsProvider =
-    FutureProvider.family<PaginatedResponse<EmpowermentProgramModel>, String>((
+final empowermentProgramsProvider = FutureProvider.autoDispose
+    .family<PaginatedResponse<EmpowermentProgramModel>, String>((
       ref,
       mode,
     ) async {
@@ -18,7 +18,10 @@ final empowermentProgramsProvider =
     });
 
 final empowermentProgramDetailProvider =
-    FutureProvider.family<EmpowermentProgramModel, String>((ref, id) async {
+    FutureProvider.autoDispose.family<EmpowermentProgramModel, String>((
+      ref,
+      id,
+    ) async {
       final response = await ref
           .watch(empowermentApiProvider)
           .getProgramById(id);

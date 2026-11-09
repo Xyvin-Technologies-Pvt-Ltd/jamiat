@@ -4,7 +4,7 @@ import 'package:jamiat/src/data/models/enquiry_model.dart';
 import 'package:jamiat/src/data/models/paginated_response.dart';
 
 final receivedEnquiriesProvider =
-    FutureProvider<PaginatedResponse<EnquiryModel>>((ref) async {
+    FutureProvider.autoDispose<PaginatedResponse<EnquiryModel>>((ref) async {
       final response = await ref
           .watch(enquiryApiProvider)
           .getReceivedEnquiries();

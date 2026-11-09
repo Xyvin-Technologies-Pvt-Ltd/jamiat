@@ -19,6 +19,10 @@ class AsyncContent<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return asyncValue.when(
+      // Keep previous content visible while a background refresh runs
+      // (pull-to-refresh, app resume, invalidate).
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () => const Center(child: LoadingAnimation()),
       error: (error, _) => Center(
         child: Padding(
