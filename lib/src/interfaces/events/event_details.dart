@@ -107,8 +107,79 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
   }
 
+  BuildContext get _dialogContext =>
+      NavigationService.navigatorKey.currentContext ?? context;
+
+  Future<bool> _confirmRegistration(EventModel event) async {
+    final confirmed = await showDialog<bool>(
+      context: _dialogContext,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Register for event?'),
+        content: Text('Do you want to register for "${event.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Register'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  /// Success confirmation for both online and offline registrations.
+  Future<void> _showRegistrationConfirmation({
+    required EventModel event,
+    String? message,
+    String? ticketId,
+  }) {
+    final hasTicket = ticketId != null && ticketId.isNotEmpty;
+
+    return showDialog<void>(
+      context: _dialogContext,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Registration Confirmed'),
+        content: Text(
+          message?.trim().isNotEmpty == true
+              ? message!.trim()
+              : 'You have successfully registered for ${event.title}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+          if (hasTicket)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                NavigationService().pushNamed(
+                  'EventTicket',
+                  arguments: {'ticketId': ticketId},
+                );
+              },
+              child: const Text('View Ticket'),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _registerOrViewTicket(EventModel event) async {
     if (event.isRegistered == true) {
+      // Online events have no tickets — show registration confirmation.
+      if (event.isOnline) {
+        await _showRegistrationConfirmation(event: event);
+        return;
+      }
+
       final ticketId = event.myTicketId;
       if (ticketId != null && ticketId.isNotEmpty) {
         NavigationService().pushNamed(
@@ -130,24 +201,34 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
     }
 
     if (_registerLoading) return;
+
+    final confirmed = await _confirmRegistration(event);
+    if (!confirmed || !mounted) return;
+
     setState(() => _registerLoading = true);
     try {
       final res = await ref.read(eventApiProvider).registerForEvent(event.id);
       if (!mounted) return;
-      if (!res.success || res.data == null) {
+      if (!res.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(res.message ?? 'Registration failed')),
         );
         return;
       }
+
+      final ticketId = res.data?.id;
+      // Always show confirmation for online and offline registrations.
+      await _showRegistrationConfirmation(
+        event: event,
+        message: res.message,
+        ticketId: event.isOnline ? null : ticketId,
+      );
+
+      if (!mounted) return;
       ref.invalidate(eventDetailProvider(event.id));
       ref.invalidate(myTicketsProvider('upcoming'));
       ref.invalidate(myTicketsProvider('past'));
       ref.invalidate(eventsListProvider);
-      NavigationService().pushNamed(
-        'EventTicket',
-        arguments: {'ticketId': res.data!.id},
-      );
     } finally {
       if (mounted) setState(() => _registerLoading = false);
     }
@@ -513,18 +594,27 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
         event != null && event.isCoordinator(currentUserId);
     final isCompleted = event?.isFinished == true;
     final isRegistered = event?.isRegistered == true;
-    // Past events: Completed (grey). Registered past events can still view ticket.
-    final showCompleted = event != null && !isCoordinator && isCompleted && !isRegistered;
+    final isOnline = event?.isOnline == true;
+    // Past events: Completed (grey). Offline registered events can view ticket.
+    final showCompleted =
+        event != null && !isCoordinator && isCompleted && !isRegistered;
     final showViewTicket =
-        event != null && !isCoordinator && isRegistered;
+        event != null && !isCoordinator && isRegistered && !isOnline;
+    final showRegisteredOnline =
+        event != null && !isCoordinator && isRegistered && isOnline;
     final showRegister = event != null &&
         !isCoordinator &&
         !isCompleted &&
         !isRegistered &&
         event.registrationEnabled == true;
-    final showScanQr = event != null && isCoordinator && !isCompleted;
-    final showBottomBar =
-        showScanQr || showRegister || showViewTicket || showCompleted;
+    // QR check-in is only for offline / in-person events.
+    final showScanQr =
+        event != null && isCoordinator && !isCompleted && !isOnline;
+    final showBottomBar = showScanQr ||
+        showRegister ||
+        showViewTicket ||
+        showRegisteredOnline ||
+        showCompleted;
 
     return Scaffold(
       backgroundColor: kWhite,
@@ -664,8 +754,9 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                           _registerOrViewTicket(event);
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        showCompleted ? kGrey : kPrimaryColor,
+                    backgroundColor: (showCompleted || showRegisteredOnline)
+                        ? kGrey
+                        : kPrimaryColor,
                     foregroundColor: kWhite,
                     disabledBackgroundColor: showCompleted
                         ? kGrey
@@ -679,6 +770,8 @@ class _EventDetailsScreenState extends ConsumerState<EventDetailsScreen> {
                   ),
                   child: showCompleted
                       ? Text('Completed', style: kButtonLabelSB)
+                      : showRegisteredOnline
+                      ? Text('Registered', style: kButtonLabelSB)
                       : showScanQr
                       ? Text('Scan QR', style: kButtonLabelSB)
                       : _registerLoading

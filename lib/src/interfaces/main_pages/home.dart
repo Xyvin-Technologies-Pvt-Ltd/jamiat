@@ -451,7 +451,11 @@ class HomePage extends ConsumerWidget {
                                         HapticHelper.impact(HapticImpact.light);
                                         NavigationService().pushNamed(
                                           'NewsDetail',
-                                          arguments: {'newsId': item.id},
+                                          arguments: {
+                                            'newsId': item.id,
+                                            'newsIds':
+                                                items.map((e) => e.id).toList(),
+                                          },
                                         );
                                       },
                                       child: Container(

@@ -219,7 +219,11 @@ class _NewsListScreenState extends ConsumerState<NewsListScreen> {
                                 HapticHelper.impact(HapticImpact.light);
                                 NavigationService().pushNamed(
                                   'NewsDetail',
-                                  arguments: {'newsId': item.id},
+                                  arguments: {
+                                    'newsId': item.id,
+                                    'newsIds':
+                                        filtered.map((e) => e.id).toList(),
+                                  },
                                 );
                               },
                               child: Container(

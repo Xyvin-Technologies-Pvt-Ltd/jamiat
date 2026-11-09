@@ -49,6 +49,10 @@ class EventModel {
   final String type;
   final bool isBookmarked;
 
+  bool get isOnline => type.toLowerCase() == 'online';
+
+  bool get isOffline => !isOnline;
+
   /// Backend: draft | published | completed | deleted
   final String status;
   final String? coverImage;
@@ -229,6 +233,7 @@ class EventTicketModel {
     this.eventTitle,
     this.eventDate,
     this.eventEndDate,
+    this.eventType,
     this.venue,
     this.passType = 'General Entry Pass',
   });
@@ -243,8 +248,14 @@ class EventTicketModel {
   final String? eventTitle;
   final DateTime? eventDate;
   final DateTime? eventEndDate;
+  final String? eventType;
   final String? venue;
   final String passType;
+
+  bool get isOnlineEvent => (eventType ?? '').toLowerCase() == 'online';
+
+  /// Tickets are only meaningful for in-person (offline) events.
+  bool get isOfflineEvent => !isOnlineEvent;
 
   bool get isAttended =>
       displayStatus == 'attended' || status == 'attended';
@@ -269,6 +280,7 @@ class EventTicketModel {
       eventTitle: eventMap['title']?.toString(),
       eventDate: EventModel.parseApiDate(eventMap['start_date']),
       eventEndDate: EventModel.parseApiDate(eventMap['end_date']),
+      eventType: (eventMap['event_type'] ?? eventMap['type'])?.toString(),
       venue: eventMap['venue']?.toString(),
       passType: (json['pass_type'] ?? 'General Entry Pass').toString(),
     );

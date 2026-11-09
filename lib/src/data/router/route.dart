@@ -358,7 +358,14 @@ Route<dynamic> generateRoute(RouteSettings? settings) {
 
     case 'NewsDetail':
       final args = settings?.arguments as Map<String, dynamic>?;
-      page = NewsDetailScreen(newsId: args?['newsId'] as String? ?? '1');
+      final newsIds = (args?['newsIds'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
+      page = NewsDetailScreen(
+        newsId: args?['newsId'] as String? ?? '1',
+        newsIds: newsIds,
+      );
       transitionToUse = TransitionType.slideFromRight;
       transitionDuration = const Duration(milliseconds: 300);
       break;

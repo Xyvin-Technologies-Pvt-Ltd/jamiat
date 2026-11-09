@@ -21,36 +21,77 @@ class EventQrScanScreen extends ConsumerStatefulWidget {
   ConsumerState<EventQrScanScreen> createState() => _EventQrScanScreenState();
 }
 
-class _EventQrScanScreenState extends ConsumerState<EventQrScanScreen> {
+class _EventQrScanScreenState extends ConsumerState<EventQrScanScreen>
+    with WidgetsBindingObserver {
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
     formats: const [BarcodeFormat.qrCode],
+    autoStart: false,
   );
 
   bool _busy = false;
+  bool _permissionChecking = true;
   bool _permissionDenied = false;
+  bool _wasBackgrounded = false;
   String? _statusMessage;
   bool _statusIsError = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ensureCameraPermission();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _ensureCameraPermission() async {
-    final status = await Permission.camera.request();
-    if (!mounted) return;
-    if (!status.isGranted) {
-      setState(() => _permissionDenied = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+      return;
     }
+    if (state == AppLifecycleState.resumed && _wasBackgrounded) {
+      _wasBackgrounded = false;
+      // User may have just enabled camera in system Settings.
+      _ensureCameraPermission();
+    }
+  }
+
+  bool _isCameraAllowed(PermissionStatus status) =>
+      status.isGranted || status.isLimited;
+
+  Future<void> _ensureCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (!_isCameraAllowed(status)) {
+      status = await Permission.camera.request();
+    }
+    if (!mounted) return;
+
+    final allowed = _isCameraAllowed(status);
+    setState(() {
+      _permissionChecking = false;
+      _permissionDenied = !allowed;
+    });
+
+    if (!allowed) return;
+
+    // Start after MobileScanner is in the tree.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _permissionDenied) return;
+      try {
+        await _controller.start();
+      } catch (_) {
+        // Controller may already be running after a prior grant.
+      }
+    });
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -167,7 +208,14 @@ class _EventQrScanScreenState extends ConsumerState<EventQrScanScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (_permissionDenied)
+          if (_permissionChecking)
+            const ColoredBox(
+              color: kBlack,
+              child: Center(
+                child: CircularProgressIndicator(color: kWhite),
+              ),
+            )
+          else if (_permissionDenied)
             const ColoredBox(
               color: kBlack,
               child: Center(
@@ -186,14 +234,15 @@ class _EventQrScanScreenState extends ConsumerState<EventQrScanScreen> {
               controller: _controller,
               onDetect: _onDetect,
             ),
-          CustomPaint(
-            size: size,
-            painter: _ScanOverlayPainter(
-              cutoutSize: cutoutSize,
-              overlayColor: kBlack.withValues(alpha: 0.55),
-              frameColor: kWhite,
+          if (!_permissionDenied && !_permissionChecking)
+            CustomPaint(
+              size: size,
+              painter: _ScanOverlayPainter(
+                cutoutSize: cutoutSize,
+                overlayColor: kBlack.withValues(alpha: 0.55),
+                frameColor: kWhite,
+              ),
             ),
-          ),
           if (_statusMessage != null)
             Positioned(
               left: kScreenPaddingH,

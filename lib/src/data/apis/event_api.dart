@@ -112,7 +112,7 @@ class EventApi {
       requireAuth: true,
     );
     final data = nestedData(response.data);
-    // Backend returns the existing ticket on "already registered" (400).
+    // Offline tickets (and "already registered" 400) include ticket_code.
     if (data != null && data['ticket_code'] != null) {
       return ApiResponse.success(
         EventTicketModel.fromJson(data),
@@ -126,9 +126,18 @@ class EventApi {
         response.statusCode,
       );
     }
-    return ApiResponse.error(
-      'Invalid registration response',
-      response.statusCode,
+    // Online events register without a ticket — accept id-only / empty payloads.
+    if (data != null) {
+      return ApiResponse.success(
+        EventTicketModel.fromJson(data),
+        response.statusCode ?? 200,
+        message: response.message ?? 'Registered successfully',
+      );
+    }
+    return ApiResponse.success(
+      null,
+      response.statusCode ?? 200,
+      message: response.message ?? 'Registered successfully',
     );
   }
 

@@ -338,11 +338,13 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                             Text(
                               upcomingTicketsAsync.when(
                                 data: (tickets) {
-                                  final count = tickets.length;
+                                  final count = tickets
+                                      .where((t) => t.isOfflineEvent)
+                                      .length;
                                   if (count == 0) {
-                                    return 'No upcoming events registered';
+                                    return 'No upcoming tickets';
                                   }
-                                  return '$count upcoming event${count == 1 ? '' : 's'} registered';
+                                  return '$count upcoming ticket${count == 1 ? '' : 's'}';
                                 },
                                 loading: () => 'Loading tickets...',
                                 error: (_, _) => 'View your tickets',

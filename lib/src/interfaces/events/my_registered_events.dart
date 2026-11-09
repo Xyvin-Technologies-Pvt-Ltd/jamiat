@@ -194,13 +194,17 @@ class _MyRegisteredEventsScreenState
                                 isUpcoming: _isUpcomingSelected,
                                 cream: _cardCream,
                                 onTap: () => _openRegisteredEvent(ticket),
-                                onViewTicket: () {
-                                  HapticHelper.impact(HapticImpact.light);
-                                  NavigationService().pushNamed(
-                                    'EventTicket',
-                                    arguments: {'ticketId': ticket.id},
-                                  );
-                                },
+                                onViewTicket: ticket.isOfflineEvent
+                                    ? () {
+                                        HapticHelper.impact(
+                                          HapticImpact.light,
+                                        );
+                                        NavigationService().pushNamed(
+                                          'EventTicket',
+                                          arguments: {'ticketId': ticket.id},
+                                        );
+                                      }
+                                    : null,
                               ),
                             ),
                           ],
@@ -278,14 +282,14 @@ class _RegisteredEventCard extends StatelessWidget {
     required this.isUpcoming,
     required this.cream,
     required this.onTap,
-    required this.onViewTicket,
+    this.onViewTicket,
   });
 
   final EventTicketModel ticket;
   final bool isUpcoming;
   final Color cream;
   final VoidCallback onTap;
-  final VoidCallback onViewTicket;
+  final VoidCallback? onViewTicket;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +406,7 @@ class _RegisteredEventCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (isUpcoming)
+            if (isUpcoming && onViewTicket != null)
               Material(
                 color: kScreenBg,
                 child: InkWell(

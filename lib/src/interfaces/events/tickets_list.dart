@@ -120,7 +120,10 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen> {
                 asyncValue: ticketsAsync,
                 onRetry: () => ref.invalidate(myTicketsProvider(tab)),
                 builder: (tickets) {
-                  if (tickets.isEmpty) {
+                  // Tickets are only for offline / in-person events.
+                  final offlineTickets =
+                      tickets.where((t) => t.isOfflineEvent).toList();
+                  if (offlineTickets.isEmpty) {
                     return Center(
                       child: Text(
                         _isUpcomingSelected
@@ -131,7 +134,7 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen> {
                     );
                   }
 
-                  final grouped = _groupByMonth(tickets);
+                  final grouped = _groupByMonth(offlineTickets);
                   final sections = grouped.entries.toList();
 
                   return RefreshIndicator(

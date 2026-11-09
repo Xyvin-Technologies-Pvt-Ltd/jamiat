@@ -6,6 +6,7 @@ import 'package:jamiat/src/data/constants/color_constants.dart';
 import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/providers/empowerment_provider.dart';
 import 'package:jamiat/src/data/services/haptic_helper.dart';
+import 'package:jamiat/src/data/services/program_share_service.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
 import 'package:jamiat/src/interfaces/components/async_content.dart';
 
@@ -27,6 +28,7 @@ class ProgramDetailsScreen extends ConsumerStatefulWidget {
 class _ProgramDetailsScreenState extends ConsumerState<ProgramDetailsScreen> {
   bool _bookmarkLoading = false;
   bool _applyLoading = false;
+  bool _shareLoading = false;
 
   Widget _headerCircleButton({required Widget child, VoidCallback? onTap}) {
     return GestureDetector(
@@ -43,6 +45,28 @@ class _ProgramDetailsScreenState extends ConsumerState<ProgramDetailsScreen> {
         child: child,
       ),
     );
+  }
+
+  Future<void> _shareProgram(String title, String? description) async {
+    if (_shareLoading) return;
+    setState(() => _shareLoading = true);
+    try {
+      HapticHelper.impact(HapticImpact.light);
+      await ref.read(programShareServiceProvider).shareProgram(
+            context: context,
+            title: title,
+            description: description,
+          );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _shareLoading = false);
+    }
   }
 
   Future<void> _toggleBookmark(bool isBookmarked) async {
@@ -134,22 +158,29 @@ class _ProgramDetailsScreenState extends ConsumerState<ProgramDetailsScreen> {
                     child: Text('Program Details', style: kSectionTitleSB),
                   ),
                   _headerCircleButton(
-                    onTap: () {
-                      HapticHelper.impact(HapticImpact.light);
-                      final title = program?.title ?? 'program';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Thanks for sharing $title')),
-                      );
-                    },
-                    child: SvgPicture.asset(
-                      'assets/svg/share.svg',
-                      width: 18,
-                      height: 18,
-                      colorFilter: const ColorFilter.mode(
-                        kTextColor,
-                        BlendMode.srcIn,
-                      ),
-                    ),
+                    onTap: _shareLoading
+                        ? null
+                        : () {
+                            _shareProgram(
+                              program?.title ?? 'Program',
+                              program?.description,
+                            );
+                          },
+                    child: _shareLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : SvgPicture.asset(
+                            'assets/svg/share.svg',
+                            width: 18,
+                            height: 18,
+                            colorFilter: const ColorFilter.mode(
+                              kTextColor,
+                              BlendMode.srcIn,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 8),
                   _headerCircleButton(

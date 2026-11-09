@@ -13,6 +13,7 @@ import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/models/user_model.dart';
 import 'package:jamiat/src/data/providers/donation_provider.dart';
 import 'package:jamiat/src/data/providers/home_provider.dart';
+import 'package:jamiat/src/data/router/nav_router.dart';
 import 'package:jamiat/src/data/services/auth_session_service.dart';
 import 'package:jamiat/src/data/services/deep_link_service.dart';
 import 'package:jamiat/src/data/services/external_donation_service.dart';
@@ -906,18 +907,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: kWhite.withValues(alpha: 0.08),
-                          border: Border.all(color: kGrey, width: 1.25),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: kTextColor,
-                          size: 20,
+                      GestureDetector(
+                        onTap: () {
+                          HapticHelper.impact(HapticImpact.light);
+                          if (Navigator.canPop(context)) {
+                            Navigator.pop(context);
+                            return;
+                          }
+                          ref
+                              .read(selectedIndexProvider.notifier)
+                              .updateIndex(0);
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: kWhite.withValues(alpha: 0.08),
+                            border: Border.all(color: kGrey, width: 1.25),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: kTextColor,
+                            size: 20,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
