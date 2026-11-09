@@ -637,7 +637,7 @@ class HomePage extends ConsumerWidget {
       floatingActionButton: _ContributeButton(
         onTap: () {
           HapticHelper.impact(HapticImpact.light);
-          NavigationService().pushNamed('DonationList');
+          NavigationService().pushNamed('AutopayView');
         },
       ),
     );
