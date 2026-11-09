@@ -519,7 +519,6 @@ class HomePage extends ConsumerWidget {
                     ),
 
                     // Empowerment Programs banner — Figma Frame 46
-                    // Asset already includes light-blue left + soft fade into photo
                     if (isJamiatMember)
                       SliverToBoxAdapter(
                         child: Padding(
@@ -537,9 +536,23 @@ class HomePage extends ConsumerWidget {
                                 fit: StackFit.expand,
                                 children: [
                                   Image.asset(
-                                    'assets/pngs/empowerment_image.png',
+                                    'assets/pngs/empowerment.jpeg',
                                     fit: BoxFit.cover,
                                     alignment: Alignment.center,
+                                  ),
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          Color(0xE62C3E50),
+                                          Color(0x992C3E50),
+                                          Color(0x002C3E50),
+                                        ],
+                                        stops: [0.0, 0.42, 0.72],
+                                      ),
+                                    ),
                                   ),
                                   Padding(
                                     padding: const EdgeInsets.all(16),
