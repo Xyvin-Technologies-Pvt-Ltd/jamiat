@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jamiat/src/data/constants/color_constants.dart';
@@ -5,6 +6,7 @@ import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/models/campaign_model.dart';
 import 'package:jamiat/src/data/utils/category_mapper.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
+import 'package:jamiat/src/data/utils/network_image_utils.dart';
 import 'package:jamiat/src/interfaces/components/primarybutton.dart';
 
 /// Neutral broken-image state when a campaign has no usable cover.
@@ -39,36 +41,53 @@ Widget campaignImagePlaceholder({
   );
 }
 
-/// Campaign cover: network URL when valid, otherwise a professional placeholder.
-/// Never falls back to a dummy stock photo.
+/// Campaign cover: disk-cached network image sized to the layout, otherwise a
+/// professional placeholder. Never falls back to a dummy stock photo.
 Widget campaignCoverImage(
   String? url, {
   BoxFit fit = BoxFit.cover,
   double placeholderIconSize = 40,
   bool showPlaceholderLabel = true,
 }) {
-  final trimmed = url?.trim();
-  if (trimmed != null &&
-      trimmed.isNotEmpty &&
-      (trimmed.startsWith('http://') ||
-          trimmed.startsWith('https://') ||
-          trimmed.startsWith('//'))) {
-    final resolved = trimmed.startsWith('//') ? 'https:$trimmed' : trimmed;
-    return Image.network(
-      resolved,
-      fit: fit,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (_, _, _) => campaignImagePlaceholder(
-        iconSize: placeholderIconSize,
-        showLabel: showPlaceholderLabel,
-      ),
+  final resolved = resolveNetworkImageUrl(url);
+  if (resolved == null) {
+    return campaignImagePlaceholder(
+      iconSize: placeholderIconSize,
+      showLabel: showPlaceholderLabel,
     );
   }
 
-  return campaignImagePlaceholder(
+  final placeholder = campaignImagePlaceholder(
     iconSize: placeholderIconSize,
     showLabel: showPlaceholderLabel,
+  );
+
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      // Decode at display size so large uploads aren't fully rasterized.
+      // Prefer width so aspect ratio is preserved for BoxFit.cover cards.
+      final memWidth = networkImageCachePx(
+        constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width,
+        dpr,
+      );
+      final diskWidth = memWidth == null ? 900 : memWidth.clamp(1, 900);
+
+      return CachedNetworkImage(
+        imageUrl: resolved,
+        fit: fit,
+        width: double.infinity,
+        height: double.infinity,
+        memCacheWidth: memWidth,
+        maxWidthDiskCache: diskWidth,
+        fadeInDuration: const Duration(milliseconds: 180),
+        fadeOutDuration: const Duration(milliseconds: 120),
+        placeholder: (_, _) => const ColoredBox(color: Color(0xFFF0F0F0)),
+        errorWidget: (_, _, _) => placeholder,
+      );
+    },
   );
 }
 

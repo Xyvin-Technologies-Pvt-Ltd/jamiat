@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -15,6 +16,8 @@ import 'package:jamiat/src/data/services/haptic_helper.dart';
 import 'package:jamiat/src/data/services/navigation_services.dart';
 import 'package:jamiat/src/data/utils/category_mapper.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
+import 'package:jamiat/src/data/utils/network_image_utils.dart';
+import 'package:jamiat/src/data/utils/responsive.dart';
 import 'package:jamiat/src/interfaces/components/async_content.dart';
 import 'package:jamiat/src/interfaces/components/campaign_card.dart';
 import 'package:jamiat/src/interfaces/components/profile_avatar.dart';
@@ -68,11 +71,10 @@ const _quickAccessItems = <_QuickAccessItem>[
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
-  // ── Home spacing system ──────────────────────────────────────────────────
-  // Apply gap as top-only padding on each section to avoid double-stacking
-  // (A.bottom + B.top). All major section-to-section gaps share one token.
-  static const double _sectionGap = 20;
-  static const double _screenBottomGap = 32;
+  // Design-token gaps (Figma @ 402pt). Scaled at build via context.rs().
+  static const double _sectionGapToken = 32;
+  static const double _marketToWelfareGapToken = 40;
+  static const double _screenBottomGapToken = 60;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +85,31 @@ class HomePage extends ConsumerWidget {
           orElse: () => false,
         );
 
+    final padH = context.rs(kScreenPaddingH);
+    final sectionGap = context.rs(_sectionGapToken);
+    final marketToWelfareGap = context.rs(_marketToWelfareGapToken);
+    final screenBottomGap = context.rs(_screenBottomGapToken);
+    final gap12 = context.rs(12);
+    final gap16 = context.rs(16);
+    final gap24 = context.rs(24);
+    final gap32 = context.rs(32);
+
+    // Warm campaign covers for current + future featured data.
+    // ref.listen does not fire for the value already available on first build.
+    void warmFeaturedCovers(List<CampaignModel> campaigns) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      prefetchNetworkImages(
+        context,
+        campaigns.map((c) => c.coverImage),
+        cacheWidth: networkImageCachePx(context.rs(241), dpr),
+      );
+    }
+
+    ref.listen(featuredCampaignsProvider, (previous, next) {
+      next.whenData(warmFeaturedCovers);
+    });
+    ref.watch(featuredCampaignsProvider).whenData(warmFeaturedCovers);
+
     return Scaffold(
       backgroundColor: kWhite,
       body: SafeArea(
@@ -91,12 +118,7 @@ class HomePage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                kScreenPaddingH,
-                16,
-                kScreenPaddingH,
-                0,
-              ),
+              padding: EdgeInsets.fromLTRB(padH, gap16, padH, 0),
               child: const _HomeHeader(),
             ),
             Expanded(
@@ -110,20 +132,15 @@ class HomePage extends ConsumerWidget {
                   slivers: [
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          kScreenPaddingH,
-                          20,
-                          kScreenPaddingH,
-                          0,
-                        ),
+                        padding: EdgeInsets.fromLTRB(padH, gap24, padH, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const _ContributionsCard(),
                             if (isJamiatMember) ...[
-                              const SizedBox(height: 24),
+                              SizedBox(height: gap32),
                               Text('Quick Access', style: kSectionTitleSB),
-                              const SizedBox(height: 12),
+                              SizedBox(height: gap12),
                             ],
                           ],
                         ),
@@ -132,12 +149,7 @@ class HomePage extends ConsumerWidget {
                     if (isJamiatMember) const _QuickAccessList(),
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          kScreenPaddingH,
-                          24,
-                          kScreenPaddingH,
-                          12,
-                        ),
+                        padding: EdgeInsets.fromLTRB(padH, gap24, padH, gap12),
                         child: Row(
                           children: [
                             Expanded(
@@ -171,10 +183,10 @@ class HomePage extends ConsumerWidget {
                     if (isJamiatMember)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: kScreenPaddingH,
-                            right: kScreenPaddingH,
-                            top: _sectionGap,
+                          padding: EdgeInsets.only(
+                            left: padH,
+                            right: padH,
+                            top: sectionGap,
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
@@ -184,14 +196,14 @@ class HomePage extends ConsumerWidget {
                                 clipBehavior: Clip.hardEdge,
                                 children: [
                                   Positioned(
-                                    right: -9,
+                                    right: -context.rs(9),
                                     top: 0,
                                     bottom: 0,
-                                    width: 168,
+                                    width: context.rs(168),
                                     child: Center(
                                       child: SizedBox(
-                                        width: 168,
-                                        height: 112,
+                                        width: context.rs(168),
+                                        height: context.rs(112),
                                         child: Image.asset(
                                           'assets/pngs/market_banner.png',
                                           fit: BoxFit.cover,
@@ -201,7 +213,7 @@ class HomePage extends ConsumerWidget {
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(gap16),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -213,7 +225,7 @@ class HomePage extends ConsumerWidget {
                                             height: 1.2,
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        SizedBox(height: context.rs(8)),
                                         Text(
                                           'Discover exclusive deals & items',
                                           style: kCaption12R.copyWith(
@@ -221,7 +233,7 @@ class HomePage extends ConsumerWidget {
                                             height: 1.2,
                                           ),
                                         ),
-                                        const SizedBox(height: 10),
+                                        SizedBox(height: context.rs(10)),
                                         GestureDetector(
                                           onTap: () {
                                             HapticHelper.impact(
@@ -235,9 +247,9 @@ class HomePage extends ConsumerWidget {
                                                 .updateIndex(2);
                                           },
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 8,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: gap16,
+                                              vertical: context.rs(8),
                                             ),
                                             decoration: BoxDecoration(
                                               color: kPrimaryColor,
@@ -265,15 +277,20 @@ class HomePage extends ConsumerWidget {
 
                     // Redesigned: Welfare Grid Section
                     if (isJamiatMember)
-                      const SliverToBoxAdapter(child: _WelfareGridSection()),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: marketToWelfareGap),
+                          child: const _WelfareGridSection(),
+                        ),
+                      ),
 
                     // Medical Relief Fund banner — Figma 2248:756 / Frame 2001
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: kScreenPaddingH,
-                          right: kScreenPaddingH,
-                          top: _sectionGap,
+                        padding: EdgeInsets.only(
+                          left: padH,
+                          right: padH,
+                          top: sectionGap,
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(14),
@@ -283,10 +300,10 @@ class HomePage extends ConsumerWidget {
                               clipBehavior: Clip.hardEdge,
                               children: [
                                 Positioned(
-                                  right: -30,
-                                  top: -20,
-                                  width: 180,
-                                  height: 140,
+                                  right: -context.rs(30),
+                                  top: -context.rs(20),
+                                  width: context.rs(180),
+                                  height: context.rs(140),
                                   child: Opacity(
                                     opacity: 0.85,
                                     child: Image.asset(
@@ -296,10 +313,10 @@ class HomePage extends ConsumerWidget {
                                   ),
                                 ),
                                 Positioned(
-                                  right: -20,
-                                  bottom: -50,
-                                  width: 140,
-                                  height: 170,
+                                  right: -context.rs(20),
+                                  bottom: -context.rs(50),
+                                  width: context.rs(140),
+                                  height: context.rs(170),
                                   child: Opacity(
                                     opacity: 0.75,
                                     child: Image.asset(
@@ -309,16 +326,16 @@ class HomePage extends ConsumerWidget {
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(gap16),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 5,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: context.rs(8),
+                                          vertical: context.rs(5),
                                         ),
                                         decoration: BoxDecoration(
                                           color: kWhite.withValues(alpha: 0.66),
@@ -334,7 +351,7 @@ class HomePage extends ConsumerWidget {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
+                                      SizedBox(height: context.rs(10)),
                                       Text(
                                         'Millions lack healthcare; fund life-saving medicine today.',
                                         style: kSubHeadingSB.copyWith(
@@ -342,7 +359,7 @@ class HomePage extends ConsumerWidget {
                                           height: 1.4,
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
+                                      SizedBox(height: context.rs(10)),
                                       GestureDetector(
                                         onTap: () {
                                           HapticHelper.impact(
@@ -355,9 +372,9 @@ class HomePage extends ConsumerWidget {
                                               .updateIndex(1);
                                         },
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 10,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: gap16,
+                                            vertical: context.rs(10),
                                           ),
                                           decoration: BoxDecoration(
                                             color: kSecondaryColor,
@@ -387,11 +404,11 @@ class HomePage extends ConsumerWidget {
                     // Latest News — Figma Frame 43 (370 × 172)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          kScreenPaddingH,
-                          _sectionGap,
-                          kScreenPaddingH,
-                          8,
+                        padding: EdgeInsets.fromLTRB(
+                          padH,
+                          sectionGap,
+                          padH,
+                          gap12,
                         ),
                         child: Row(
                           children: [
@@ -419,10 +436,16 @@ class HomePage extends ConsumerWidget {
                     ),
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 146,
+                        // Figma Frame 43 is 172 tall; keep room for 2-line
+                        // description + date with bottom padding.
+                        height: context.rs(172),
                         child: Consumer(
                           builder: (context, ref, _) {
                             final newsAsync = ref.watch(newsListProvider);
+                            final newsPadH = context.rs(kScreenPaddingH);
+                            final newsGap = context.rs(12);
+                            final newsCardW = context.rs(323);
+                            final newsInnerPad = context.rs(16);
                             return AsyncContent(
                               asyncValue: newsAsync,
                               onRetry: () => refreshHomeData(ref),
@@ -438,12 +461,12 @@ class HomePage extends ConsumerWidget {
                                 }
                                 return ListView.separated(
                                   scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: kScreenPaddingH,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: newsPadH,
                                   ),
                                   itemCount: items.length,
                                   separatorBuilder: (_, _) =>
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: newsGap),
                                   itemBuilder: (context, index) {
                                     final item = items[index];
                                     return GestureDetector(
@@ -459,8 +482,13 @@ class HomePage extends ConsumerWidget {
                                         );
                                       },
                                       child: Container(
-                                        width: 323,
-                                        padding: const EdgeInsets.all(16),
+                                        width: newsCardW,
+                                        padding: EdgeInsets.fromLTRB(
+                                          newsInnerPad,
+                                          newsInnerPad,
+                                          newsInnerPad,
+                                          context.rs(16),
+                                        ),
                                         decoration: BoxDecoration(
                                           color: kWhite,
                                           borderRadius: BorderRadius.circular(
@@ -481,7 +509,7 @@ class HomePage extends ConsumerWidget {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 8),
+                                            SizedBox(height: context.rs(8)),
                                             Text(
                                               item.title,
                                               style: kLabel15SB.copyWith(
@@ -490,23 +518,27 @@ class HomePage extends ConsumerWidget {
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 8),
-                                            Expanded(
+                                            SizedBox(height: context.rs(8)),
+                                            Text(
+                                              item.description,
+                                              style: kCaption12R.copyWith(
+                                                color: kTextColor,
+                                                height: 1.3,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const Spacer(),
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                top: context.rs(12),
+                                              ),
                                               child: Text(
-                                                item.description,
-                                                style: kCaption12R.copyWith(
-                                                  color: kTextColor,
+                                                _formatNewsDate(item.createdAt),
+                                                style: kCaption10R.copyWith(
+                                                  color: kMutedText,
                                                   height: 1.2,
                                                 ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            Text(
-                                              _formatNewsDate(item.createdAt),
-                                              style: kCaption10R.copyWith(
-                                                color: kMutedText,
-                                                height: 1.2,
                                               ),
                                             ),
                                           ],
@@ -526,11 +558,10 @@ class HomePage extends ConsumerWidget {
                     if (isJamiatMember)
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: kScreenPaddingH,
-                            right: kScreenPaddingH,
-                            top: _sectionGap,
-                            bottom: _sectionGap,
+                          padding: EdgeInsets.only(
+                            left: padH,
+                            right: padH,
+                            top: sectionGap,
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
@@ -559,7 +590,7 @@ class HomePage extends ConsumerWidget {
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: EdgeInsets.all(gap16),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -571,7 +602,7 @@ class HomePage extends ConsumerWidget {
                                             height: 1.2,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
+                                        SizedBox(height: context.rs(2)),
                                         Text(
                                           'Empowerment\nPrograms',
                                           style: kHeadTitleSB.copyWith(
@@ -579,9 +610,9 @@ class HomePage extends ConsumerWidget {
                                             height: 1.15,
                                           ),
                                         ),
-                                        const SizedBox(height: 12),
+                                        SizedBox(height: gap12),
                                         SizedBox(
-                                          width: 168,
+                                          width: context.rs(168),
                                           child: Text(
                                             'for skill building, financial aid requests, and welfare services.',
                                             style: kCaption12R.copyWith(
@@ -601,9 +632,9 @@ class HomePage extends ConsumerWidget {
                                             );
                                           },
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 10,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: gap16,
+                                              vertical: context.rs(10),
                                             ),
                                             decoration: BoxDecoration(
                                               color: kPrimaryColor,
@@ -628,8 +659,8 @@ class HomePage extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: _screenBottomGap),
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: screenBottomGap),
                     ),
                   ],
                 ),
@@ -660,10 +691,15 @@ class _HomeHeader extends ConsumerWidget {
     final image = user?.image;
 
     // Figma Home header: avatar 48 · gap 8 · greeting 15/#aaa · name 19 SB · bell 40
+    final avatarSize = context.rs(48);
+    final headerGap = context.rs(8);
+    final bellSize = context.rs(40);
+    final bellIcon = context.rs(24);
+
     return Row(
       children: [
-        ProfileAvatar(imageUrl: image, size: 48),
-        const SizedBox(width: 8),
+        ProfileAvatar(imageUrl: image, size: avatarSize),
+        SizedBox(width: headerGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,7 +711,7 @@ class _HomeHeader extends ConsumerWidget {
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: context.rs(4)),
               Text(
                 userName,
                 style: kSubHeadingSB.copyWith(height: 1.2),
@@ -685,7 +721,7 @@ class _HomeHeader extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: headerGap),
         Material(
           color: kWhite.withValues(alpha: 0.08),
           shape: const CircleBorder(
@@ -698,13 +734,13 @@ class _HomeHeader extends ConsumerWidget {
               NavigationService().pushNamed('Notifications');
             },
             child: SizedBox(
-              width: 40,
-              height: 40,
+              width: bellSize,
+              height: bellSize,
               child: Center(
                 child: SvgPicture.asset(
                   'assets/svg/bell.svg',
-                  width: 24,
-                  height: 24,
+                  width: bellIcon,
+                  height: bellIcon,
                   colorFilter: const ColorFilter.mode(
                     kIconMuted,
                     BlendMode.srcIn,
@@ -727,9 +763,12 @@ class _ContributionsCard extends ConsumerWidget {
     final statsAsync = ref.watch(homeStatsProvider);
 
     // Figma 2248:620 — bg #edf9f3 · radius 14 · pad 16 · gap 10
+    final pad = context.rs(16);
+    final tileGap = context.rs(10);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
         color: kContributionsBg,
         borderRadius: BorderRadius.circular(kCardRadiusMd),
@@ -744,7 +783,7 @@ class _ContributionsCard extends ConsumerWidget {
               'My Contributions',
               style: kBodyTitleSB.copyWith(color: kTextColor, height: 1.2),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: context.rs(4)),
             Text(
               'Members-only deals & services',
               style: kCaption12R.copyWith(
@@ -752,7 +791,7 @@ class _ContributionsCard extends ConsumerWidget {
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: tileGap),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -763,7 +802,7 @@ class _ContributionsCard extends ConsumerWidget {
                       value: formatRupee(stats.totalDonated),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: tileGap),
                   Expanded(
                     child: _StatTile(
                       label: 'PARTICIPATED CAMPAIGNS',
@@ -791,11 +830,12 @@ class _StatTile extends StatelessWidget {
     // Figma stat tiles: pad 16 · radius 8 · label 12 Bold/#6d6d6d · value 19 SB primary
     // Reserve 2 label lines so a wrapping title (e.g. PARTICIPATED CAMPAIGNS)
     // does not push its value below the sibling tile.
-    const labelHeight = kSize12 * 1.3 * 2;
+    final pad = context.rs(16);
+    final labelHeight = context.rs(kSize12) * 1.3 * 2;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
         color: kWhite,
         borderRadius: BorderRadius.circular(kCardRadiusSm),
@@ -816,7 +856,7 @@ class _StatTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: pad),
           Text(
             value,
             style: kSubHeadingSB.copyWith(color: kPrimaryColor, height: 1.2),
@@ -833,26 +873,31 @@ class _QuickAccessList extends ConsumerWidget {
   const _QuickAccessList();
 
   // Figma 2320:688 — cards 100×126, gap 16
-  static const double _cardWidth = 100;
-  static const double _cardHeight = 126;
-  static const double _cardGap = 16;
+  static const double _cardWidthToken = 100;
+  static const double _cardHeightToken = 126;
+  static const double _cardGapToken = 16;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = _quickAccessItems;
+    final cardWidth = context.rs(_cardWidthToken);
+    final cardHeight = context.rs(_cardHeightToken);
+    final cardGap = context.rs(_cardGapToken);
+    final padH = context.rs(kScreenPaddingH);
+
     return SliverToBoxAdapter(
       child: SizedBox(
-        height: _cardHeight,
+        height: cardHeight,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: kScreenPaddingH),
+          padding: EdgeInsets.symmetric(horizontal: padH),
           itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(width: _cardGap),
+          separatorBuilder: (_, _) => SizedBox(width: cardGap),
           itemBuilder: (context, index) {
             final item = items[index];
             return _QuickAccessCard(
-              width: _cardWidth,
-              height: _cardHeight,
+              width: cardWidth,
+              height: cardHeight,
               item: item,
               onTap: () {
                 HapticHelper.impact(HapticImpact.light);
@@ -894,6 +939,11 @@ class _QuickAccessCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final insetTop = context.rs(10);
+    final insetSide = context.rs(12);
+    final insetBottom = context.rs(10);
+    final iconSize = context.rs(48);
+
     return SizedBox(
       width: width,
       height: height,
@@ -907,9 +957,9 @@ class _QuickAccessCard extends StatelessWidget {
           child: Stack(
             children: [
               Positioned(
-                top: 10,
-                left: 12,
-                right: 12,
+                top: insetTop,
+                left: insetSide,
+                right: insetSide,
                 child: Text(
                   item.label,
                   style: kBodyTitleR.copyWith(height: 1.2),
@@ -918,10 +968,10 @@ class _QuickAccessCard extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: 12,
-                bottom: 10,
-                width: 48,
-                height: 48,
+                right: insetSide,
+                bottom: insetBottom,
+                width: iconSize,
+                height: iconSize,
                 child: SvgPicture.asset(
                   item.icon,
                   fit: BoxFit.contain,
@@ -940,15 +990,20 @@ class _ActiveCampaignsSection extends ConsumerWidget {
   const _ActiveCampaignsSection();
 
   // Figma Active Campaigns cards: 241×262 · gap 12 · radius 14
-  static const double _cardWidth = 241;
-  static const double _cardHeight = 262;
+  static const double _cardWidthToken = 241;
+  static const double _cardHeightToken = 262;
+  static const double _cardGapToken = 12;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final campaignsAsync = ref.watch(featuredCampaignsProvider);
+    final cardWidth = context.rs(_cardWidthToken);
+    final cardHeight = context.rs(_cardHeightToken);
+    final cardGap = context.rs(_cardGapToken);
+    final padH = context.rs(kScreenPaddingH);
 
     return SizedBox(
-      height: _cardHeight,
+      height: cardHeight,
       child: AsyncContent(
         asyncValue: campaignsAsync,
         onRetry: () => refreshHomeData(ref),
@@ -960,13 +1015,13 @@ class _ActiveCampaignsSection extends ConsumerWidget {
           }
           return ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: kScreenPaddingH),
+            padding: EdgeInsets.symmetric(horizontal: padH),
             itemCount: campaigns.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => SizedBox(width: cardGap),
             itemBuilder: (context, index) {
               return _CampaignCard(
-                width: _cardWidth,
-                height: _cardHeight,
+                width: cardWidth,
+                height: cardHeight,
                 campaign: campaigns[index],
                 onTap: () {
                   HapticHelper.impact(HapticImpact.light);
@@ -1030,12 +1085,12 @@ class _CampaignCard extends StatelessWidget {
                 ),
               ),
               Positioned(
-                top: 16,
-                left: 16,
+                top: context.rs(16),
+                left: context.rs(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.rs(8),
+                    vertical: context.rs(5),
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xCCD5D5D5),
@@ -1048,9 +1103,9 @@ class _CampaignCard extends StatelessWidget {
                 ),
               ),
               Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
+                left: context.rs(16),
+                right: context.rs(16),
+                bottom: context.rs(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1061,19 +1116,19 @@ class _CampaignCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (hasTarget) ...[
-                      const SizedBox(height: 8),
+                      SizedBox(height: context.rs(8)),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(1),
                         child: LinearProgressIndicator(
                           value: progress.toDouble(),
-                          minHeight: 4,
+                          minHeight: context.rs(4),
                           backgroundColor: const Color(0x66D9D9D9),
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             kPrimaryColor,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: context.rs(2)),
                       Text.rich(
                         TextSpan(
                           children: [
@@ -1118,7 +1173,7 @@ class _WelfareGridSection extends ConsumerWidget {
 
   // Uniform grid constants — single source of truth for spacing and sizing.
   static const int _columns = 3;
-  static const double _tileGap = 12;
+  static const double _tileGapToken = 12;
   // childAspectRatio: width / height. 113 wide × 128 tall ≈ 0.88.
   static const double _tileAspectRatio = 113 / 128;
 
@@ -1164,9 +1219,11 @@ class _WelfareGridSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final listAsync = ref.watch(welfareListProvider);
+    final padH = context.rs(kScreenPaddingH);
+    final tileGap = context.rs(_tileGapToken);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: kScreenPaddingH),
+      padding: EdgeInsets.symmetric(horizontal: padH),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1175,13 +1232,13 @@ class _WelfareGridSection extends ConsumerWidget {
             textAlign: TextAlign.center,
             style: kSectionTitleSB.copyWith(height: 1.2),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.rs(8)),
           Text(
             'Dedicated programs focused on supporting and empowering our community.',
             textAlign: TextAlign.center,
             style: kCaption12R.copyWith(color: kMutedText, height: 1.35),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.rs(16)),
           Center(
             child: GestureDetector(
               onTap: () {
@@ -1189,9 +1246,9 @@ class _WelfareGridSection extends ConsumerWidget {
                 NavigationService().pushNamed('WelfareProgram');
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.rs(16),
+                  vertical: context.rs(10),
                 ),
                 decoration: BoxDecoration(
                   color: kPrimaryColor,
@@ -1204,7 +1261,7 @@ class _WelfareGridSection extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: context.rs(24)),
           AsyncContent(
             asyncValue: listAsync,
             onRetry: () => ref.invalidate(welfareListProvider),
@@ -1212,7 +1269,7 @@ class _WelfareGridSection extends ConsumerWidget {
               final services = page.items;
               if (services.isEmpty) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
+                  padding: EdgeInsets.only(bottom: context.rs(24)),
                   child: Text(
                     'No welfare services available yet.',
                     textAlign: TextAlign.center,
@@ -1227,8 +1284,8 @@ class _WelfareGridSection extends ConsumerWidget {
               // equal gaps — no manual column splitting or height maps needed.
               return GridView.count(
                 crossAxisCount: _columns,
-                crossAxisSpacing: _tileGap,
-                mainAxisSpacing: _tileGap,
+                crossAxisSpacing: tileGap,
+                mainAxisSpacing: tileGap,
                 childAspectRatio: _tileAspectRatio,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -1260,21 +1317,35 @@ class _WelfareServiceCard extends StatelessWidget {
     this.fallbackAsset,
   });
 
-  Widget _image() {
-    final icon = service.icon;
-    if (icon != null && icon.startsWith('http')) {
-      return Image.network(
-        icon,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => fallbackAsset != null
-            ? Image.asset(fallbackAsset!, fit: BoxFit.contain)
-            : const Icon(Icons.volunteer_activism_outlined, color: kMutedText),
-      );
-    }
+  Widget _fallbackImage() {
     if (fallbackAsset != null) {
       return Image.asset(fallbackAsset!, fit: BoxFit.contain);
     }
     return const Icon(Icons.volunteer_activism_outlined, color: kMutedText);
+  }
+
+  Widget _image(BuildContext context) {
+    final resolved = resolveNetworkImageUrl(service.icon);
+    if (resolved == null) return _fallbackImage();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final memWidth = networkImageCachePx(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 96,
+          dpr,
+        );
+        return CachedNetworkImage(
+          imageUrl: resolved,
+          fit: BoxFit.contain,
+          memCacheWidth: memWidth,
+          maxWidthDiskCache: memWidth == null ? 256 : memWidth.clamp(1, 256),
+          fadeInDuration: const Duration(milliseconds: 150),
+          placeholder: (_, _) => const SizedBox.expand(),
+          errorWidget: (_, _, _) => _fallbackImage(),
+        );
+      },
+    );
   }
 
   @override
@@ -1295,7 +1366,10 @@ class _WelfareServiceCard extends StatelessWidget {
         // Column layout: label pinned at top, image fills remaining space.
         // No Positioned/Stack needed — the GridView cell provides the fixed size.
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.rs(6),
+            vertical: context.rs(10),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -1306,8 +1380,8 @@ class _WelfareServiceCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: kCaption12SB.copyWith(color: kTextColor, height: 1.2),
               ),
-              const SizedBox(height: 6),
-              Expanded(child: _image()),
+              SizedBox(height: context.rs(6)),
+              Expanded(child: _image(context)),
             ],
           ),
         ),
