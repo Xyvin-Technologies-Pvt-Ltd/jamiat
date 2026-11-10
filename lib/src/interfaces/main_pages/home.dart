@@ -1171,20 +1171,9 @@ class _CampaignCard extends StatelessWidget {
 class _WelfareGridSection extends ConsumerWidget {
   const _WelfareGridSection();
 
-  // Uniform grid constants — single source of truth for spacing and sizing.
-  static const int _columns = 3;
-  static const double _tileGapToken = 12;
-  // childAspectRatio: width / height. 113 wide × 128 tall ≈ 0.88.
-  static const double _tileAspectRatio = 113 / 128;
-
-  static const _fallbackColors = [
-    Color(0xFFFFFBEB),
-    Color(0xFFFFF1F2),
-    Color(0xFFF0FDF4),
-    Color(0xFFEFF6FF),
-    Color(0xFFFDF4FF),
-    Color(0xFFF5EBE6),
-  ];
+  static const double _gapToken = 12;
+  static const double _cardRadius = 20;
+  static const Color _cardBg = Color(0xFFF2F2F2);
 
   static const _localAssetByKeyword = <String, String>{
     'maktab': 'assets/pngs/maktab.png',
@@ -1195,19 +1184,6 @@ class _WelfareGridSection extends ConsumerWidget {
     'jem': 'assets/pngs/jem.png',
   };
 
-  Color _cardColor(WelfareServiceModel service, int index) {
-    final raw = service.accentColor?.trim();
-    if (raw != null && raw.isNotEmpty) {
-      var hex = raw.replaceFirst('#', '');
-      if (hex.length == 6) hex = 'FF$hex';
-      final value = int.tryParse(hex, radix: 16);
-      if (value != null) {
-        return Color(value).withValues(alpha: 0.18);
-      }
-    }
-    return _fallbackColors[index % _fallbackColors.length];
-  }
-
   String? _localAsset(String name) {
     final lower = name.toLowerCase();
     for (final entry in _localAssetByKeyword.entries) {
@@ -1216,11 +1192,261 @@ class _WelfareGridSection extends ConsumerWidget {
     return null;
   }
 
+  void _openAll() {
+    HapticHelper.impact(HapticImpact.light);
+    NavigationService().pushNamed('WelfareProgram');
+  }
+
+  void _openService(WelfareServiceModel service) {
+    HapticHelper.impact(HapticImpact.light);
+    NavigationService().pushNamed(
+      'WelfareDetails',
+      arguments: {'welfareId': service.id},
+    );
+  }
+
+  Widget _exploreButton(BuildContext context) {
+    return Center(
+      child: GestureDetector(
+        onTap: _openAll,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.rs(20),
+            vertical: context.rs(10),
+          ),
+          decoration: BoxDecoration(
+            color: kPrimaryColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Explore',
+            style: kCaption12M.copyWith(color: kWhite, height: 1.2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(
+    BuildContext context,
+    WelfareServiceModel service, {
+    required double height,
+  }) {
+    return SizedBox(
+      height: height,
+      child: _WelfareServiceCard(
+        service: service,
+        fallbackAsset: _localAsset(service.name),
+        onTap: () => _openService(service),
+      ),
+    );
+  }
+
+  Widget _buildOne(BuildContext context, WelfareServiceModel service) {
+    return _WelfareHeroCard(
+      service: service,
+      fallbackAsset: _localAsset(service.name),
+      onExplore: () => _openService(service),
+    );
+  }
+
+  Widget _buildTwo(BuildContext context, List<WelfareServiceModel> services) {
+    final gap = context.rs(_gapToken);
+    final height = context.rs(180);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _tile(context, services[0], height: height)),
+        SizedBox(width: gap),
+        Expanded(child: _tile(context, services[1], height: height)),
+      ],
+    );
+  }
+
+  Widget _buildThree(BuildContext context, List<WelfareServiceModel> services) {
+    final gap = context.rs(_gapToken);
+    final shortH = context.rs(168);
+    final tallH = context.rs(210);
+    final medH = context.rs(184);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(child: _tile(context, services[0], height: shortH)),
+        SizedBox(width: gap),
+        Expanded(child: _tile(context, services[1], height: tallH)),
+        SizedBox(width: gap),
+        Expanded(child: _tile(context, services[2], height: medH)),
+      ],
+    );
+  }
+
+  Widget _buildFour(BuildContext context, List<WelfareServiceModel> services) {
+    final gap = context.rs(_gapToken);
+    final height = context.rs(168);
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _tile(context, services[0], height: height)),
+            SizedBox(width: gap),
+            Expanded(child: _tile(context, services[1], height: height)),
+          ],
+        ),
+        SizedBox(height: gap),
+        Row(
+          children: [
+            Expanded(child: _tile(context, services[2], height: height)),
+            SizedBox(width: gap),
+            Expanded(child: _tile(context, services[3], height: height)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFive(BuildContext context, List<WelfareServiceModel> services) {
+    final gap = context.rs(_gapToken);
+    final sideH = context.rs(148);
+    // Keep center slightly taller for emphasis, but not double-height —
+    // real icons leave empty space when the card spans both side rows.
+    final centerH = context.rs(168);
+    final columnH = sideH * 2 + gap;
+    final centerTop = ((columnH - centerH) / 2).clamp(0.0, columnH);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              _tile(context, services[0], height: sideH),
+              SizedBox(height: gap),
+              _tile(context, services[1], height: sideH),
+            ],
+          ),
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(top: centerTop),
+            child: _tile(context, services[2], height: centerH),
+          ),
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: Column(
+            children: [
+              _tile(context, services[3], height: sideH),
+              SizedBox(height: gap),
+              _tile(context, services[4], height: sideH),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSix(
+    BuildContext context,
+    List<WelfareServiceModel> services, {
+    Widget? sixthOverride,
+  }) {
+    final gap = context.rs(_gapToken);
+    final sideTopH = context.rs(152);
+    final sideBottomH = context.rs(136);
+    final centerH = context.rs(168);
+    final stagger = context.rs(24);
+
+    Widget sideColumn(WelfareServiceModel top, Widget bottom) {
+      return Expanded(
+        child: Column(
+          children: [
+            _tile(context, top, height: sideTopH),
+            SizedBox(height: gap),
+            SizedBox(height: sideBottomH, child: bottom),
+          ],
+        ),
+      );
+    }
+
+    final sixth =
+        sixthOverride ??
+        _WelfareServiceCard(
+          service: services[5],
+          fallbackAsset: _localAsset(services[5].name),
+          onTap: () => _openService(services[5]),
+        );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        sideColumn(
+          services[0],
+          _WelfareServiceCard(
+            service: services[1],
+            fallbackAsset: _localAsset(services[1].name),
+            onTap: () => _openService(services[1]),
+          ),
+        ),
+        SizedBox(width: gap),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(top: stagger),
+            child: Column(
+              children: [
+                _tile(context, services[2], height: centerH),
+                SizedBox(height: gap),
+                _tile(context, services[3], height: centerH),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(width: gap),
+        sideColumn(services[4], sixth),
+      ],
+    );
+  }
+
+  Widget _buildMoreThanSix(
+    BuildContext context,
+    List<WelfareServiceModel> services,
+  ) {
+    return _buildSix(
+      context,
+      services,
+      sixthOverride: _WelfareMoreCard(
+        remaining: services.length - 5,
+        onTap: _openAll,
+      ),
+    );
+  }
+
+  Widget _buildLayout(
+    BuildContext context,
+    List<WelfareServiceModel> services,
+  ) {
+    switch (services.length) {
+      case 1:
+        return _buildOne(context, services.first);
+      case 2:
+        return _buildTwo(context, services);
+      case 3:
+        return _buildThree(context, services);
+      case 4:
+        return _buildFour(context, services);
+      case 5:
+        return _buildFive(context, services);
+      case 6:
+        return _buildSix(context, services);
+      default:
+        return _buildMoreThanSix(context, services);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final listAsync = ref.watch(welfareListProvider);
     final padH = context.rs(kScreenPaddingH);
-    final tileGap = context.rs(_tileGapToken);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: padH),
@@ -1238,30 +1464,6 @@ class _WelfareGridSection extends ConsumerWidget {
             textAlign: TextAlign.center,
             style: kCaption12R.copyWith(color: kMutedText, height: 1.35),
           ),
-          SizedBox(height: context.rs(16)),
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                HapticHelper.impact(HapticImpact.light);
-                NavigationService().pushNamed('WelfareProgram');
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.rs(16),
-                  vertical: context.rs(10),
-                ),
-                decoration: BoxDecoration(
-                  color: kPrimaryColor,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Explore All',
-                  style: kCaption12M.copyWith(color: kWhite, height: 1.2),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: context.rs(24)),
           AsyncContent(
             asyncValue: listAsync,
             onRetry: () => ref.invalidate(welfareListProvider),
@@ -1269,7 +1471,7 @@ class _WelfareGridSection extends ConsumerWidget {
               final services = page.items;
               if (services.isEmpty) {
                 return Padding(
-                  padding: EdgeInsets.only(bottom: context.rs(24)),
+                  padding: EdgeInsets.only(top: context.rs(24)),
                   child: Text(
                     'No welfare services available yet.',
                     textAlign: TextAlign.center,
@@ -1278,24 +1480,17 @@ class _WelfareGridSection extends ConsumerWidget {
                 );
               }
 
-              final preview = services.take(6).toList();
+              final showSectionExplore = services.length != 1;
 
-              // GridView.count keeps all tiles equal width, equal height, and
-              // equal gaps — no manual column splitting or height maps needed.
-              return GridView.count(
-                crossAxisCount: _columns,
-                crossAxisSpacing: tileGap,
-                mainAxisSpacing: tileGap,
-                childAspectRatio: _tileAspectRatio,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (var i = 0; i < preview.length; i++)
-                    _WelfareServiceCard(
-                      service: preview[i],
-                      bgColor: _cardColor(preview[i], i),
-                      fallbackAsset: _localAsset(preview[i].name),
-                    ),
+                  if (showSectionExplore) ...[
+                    SizedBox(height: context.rs(16)),
+                    _exploreButton(context),
+                  ],
+                  SizedBox(height: context.rs(24)),
+                  _buildLayout(context, services),
                 ],
               );
             },
@@ -1308,12 +1503,12 @@ class _WelfareGridSection extends ConsumerWidget {
 
 class _WelfareServiceCard extends StatelessWidget {
   final WelfareServiceModel service;
-  final Color bgColor;
   final String? fallbackAsset;
+  final VoidCallback onTap;
 
   const _WelfareServiceCard({
     required this.service,
-    required this.bgColor,
+    required this.onTap,
     this.fallbackAsset,
   });
 
@@ -1351,24 +1546,18 @@ class _WelfareServiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        HapticHelper.impact(HapticImpact.light);
-        NavigationService().pushNamed(
-          'WelfareDetails',
-          arguments: {'welfareId': service.id},
-        );
-      },
+      onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
+          color: _WelfareGridSection._cardBg,
+          borderRadius: BorderRadius.circular(_WelfareGridSection._cardRadius),
         ),
-        // Column layout: label pinned at top, image fills remaining space.
-        // No Positioned/Stack needed — the GridView cell provides the fixed size.
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.rs(6),
-            vertical: context.rs(10),
+          padding: EdgeInsets.fromLTRB(
+            context.rs(10),
+            context.rs(14),
+            context.rs(10),
+            context.rs(8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -1380,8 +1569,202 @@ class _WelfareServiceCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: kCaption12SB.copyWith(color: kTextColor, height: 1.2),
               ),
-              SizedBox(height: context.rs(6)),
+              SizedBox(height: context.rs(8)),
               Expanded(child: _image(context)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WelfareHeroCard extends StatelessWidget {
+  final WelfareServiceModel service;
+  final String? fallbackAsset;
+  final VoidCallback onExplore;
+
+  const _WelfareHeroCard({
+    required this.service,
+    required this.onExplore,
+    this.fallbackAsset,
+  });
+
+  Widget _fallbackImage() {
+    if (fallbackAsset != null) {
+      return Image.asset(fallbackAsset!, fit: BoxFit.contain);
+    }
+    return const Icon(Icons.volunteer_activism_outlined, color: kMutedText);
+  }
+
+  Widget _image(BuildContext context) {
+    final resolved = resolveNetworkImageUrl(service.icon);
+    if (resolved == null) return _fallbackImage();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final memWidth = networkImageCachePx(
+          constraints.maxWidth.isFinite ? constraints.maxWidth : 160,
+          dpr,
+        );
+        return CachedNetworkImage(
+          imageUrl: resolved,
+          fit: BoxFit.contain,
+          memCacheWidth: memWidth,
+          maxWidthDiskCache: memWidth == null ? 320 : memWidth.clamp(1, 320),
+          fadeInDuration: const Duration(milliseconds: 150),
+          placeholder: (_, _) => const SizedBox.expand(),
+          errorWidget: (_, _, _) => _fallbackImage(),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final description = service.shortDescription.trim();
+    return GestureDetector(
+      onTap: onExplore,
+      child: Container(
+        constraints: BoxConstraints(minHeight: context.rs(168)),
+        decoration: BoxDecoration(
+          color: _WelfareGridSection._cardBg,
+          borderRadius: BorderRadius.circular(_WelfareGridSection._cardRadius),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 6,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.rs(18),
+                    context.rs(20),
+                    context.rs(8),
+                    context.rs(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        service.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: kBodyTitleSB.copyWith(
+                          color: kTextColor,
+                          height: 1.2,
+                        ),
+                      ),
+                      if (description.isNotEmpty) ...[
+                        SizedBox(height: context.rs(8)),
+                        Text(
+                          description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: kCaption12R.copyWith(
+                            color: kMutedText,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      SizedBox(height: context.rs(16)),
+                      GestureDetector(
+                        onTap: onExplore,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.rs(16),
+                            vertical: context.rs(10),
+                          ),
+                          decoration: BoxDecoration(
+                            color: kPrimaryColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Explore',
+                            style: kCaption12M.copyWith(
+                              color: kWhite,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 5,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: context.rs(8),
+                      bottom: context.rs(4),
+                      top: context.rs(24),
+                    ),
+                    child: _image(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WelfareMoreCard extends StatelessWidget {
+  final int remaining;
+  final VoidCallback onTap;
+
+  const _WelfareMoreCard({
+    required this.remaining,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _WelfareGridSection._cardBg,
+          borderRadius: BorderRadius.circular(_WelfareGridSection._cardRadius),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            context.rs(10),
+            context.rs(14),
+            context.rs(10),
+            context.rs(16),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '+$remaining more',
+                textAlign: TextAlign.center,
+                style: kCaption12SB.copyWith(color: kTextColor, height: 1.2),
+              ),
+              const Spacer(),
+              Container(
+                width: context.rs(44),
+                height: context.rs(44),
+                decoration: const BoxDecoration(
+                  color: kPrimaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: kWhite,
+                  size: context.rs(22),
+                ),
+              ),
+              const Spacer(),
             ],
           ),
         ),

@@ -165,23 +165,26 @@ class _WelfareDetailsScreenState extends ConsumerState<WelfareDetailsScreen> {
             const SizedBox(height: 16),
             Text(
               service.shortDescription,
-              style: kCaption12SB.copyWith(color: kTextColor, height: 1.2),
+              style: kSectionTitle19SB.copyWith(height: 1.25),
             ),
             if (service.fullDescription != null &&
                 service.fullDescription!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
                 service.fullDescription!,
-                style: kCaption12R.copyWith(color: kTextColor, height: 1.4),
+                style: kCaption12R.copyWith(color: kMutedText, height: 1.45),
               ),
             ],
             for (final block in service.statements) ...[
               const SizedBox(height: 24),
-              Text(block.heading, style: kSectionTitleSB),
+              Text(
+                block.heading,
+                style: kSectionTitle19SB.copyWith(height: 1.25),
+              ),
               const SizedBox(height: 8),
               Text(
                 block.description,
-                style: kCaption12R.copyWith(color: kTextColor, height: 1.4),
+                style: kCaption12R.copyWith(color: kMutedText, height: 1.45),
               ),
             ],
             if (service.impactStatus.isNotEmpty) ...[
