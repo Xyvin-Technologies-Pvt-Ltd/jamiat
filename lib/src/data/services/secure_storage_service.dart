@@ -9,6 +9,7 @@ class SecureStorageService {
   static const _userIdKey = 'user_id';
   static const _phoneKey = 'phone';
   static const _fcmTokenKey = 'fcm_token';
+  static const _razorpayEnabledKey = 'razorpay_enabled';
 
   final FlutterSecureStorage _storage;
 
@@ -36,9 +37,26 @@ class SecureStorageService {
 
   Future<String?> getFcmToken() => _storage.read(key: _fcmTokenKey);
 
-  /// Wipes every key in secure storage so the next login starts clean.
+  /// Payment gateway flag from GET /settings (splash). Defaults to enabled
+  /// when unset so existing installs keep working before the first fetch.
+  Future<void> saveRazorpayEnabled(bool value) async {
+    await _storage.write(key: _razorpayEnabledKey, value: value.toString());
+  }
+
+  Future<bool> getRazorpayEnabled() async {
+    final value = await _storage.read(key: _razorpayEnabledKey);
+    if (value == null) return true;
+    return value.toLowerCase() == 'true';
+  }
+
+  /// Clears auth/session keys only — keeps feature flags from settings.
   Future<void> clearSession() async {
-    await _storage.deleteAll();
+    await Future.wait([
+      _storage.delete(key: _authTokenKey),
+      _storage.delete(key: _userIdKey),
+      _storage.delete(key: _phoneKey),
+      _storage.delete(key: _fcmTokenKey),
+    ]);
   }
 }
 

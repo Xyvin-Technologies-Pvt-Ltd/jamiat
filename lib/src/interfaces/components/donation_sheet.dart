@@ -17,6 +17,7 @@ import 'package:jamiat/src/data/services/haptic_helper.dart';
 import 'package:jamiat/src/data/services/navigation_services.dart';
 import 'package:jamiat/src/data/services/razorpay_service.dart';
 import 'package:jamiat/src/data/services/external_donation_service.dart';
+import 'package:jamiat/src/data/services/secure_storage_service.dart';
 import 'package:jamiat/src/data/utils/category_mapper.dart';
 import 'package:jamiat/src/data/utils/format_helpers.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -167,6 +168,14 @@ class _DonationSheetState extends ConsumerState<DonationSheet> {
 
   Future<void> _handlePayment() async {
     if (!_hasValidAmount) return;
+
+    final razorpayEnabled = await ref
+        .read(secureStorageServiceProvider)
+        .getRazorpayEnabled();
+    if (!razorpayEnabled) {
+      _showError('Online payments are temporarily unavailable. Please try again later.');
+      return;
+    }
 
     final handled = await ExternalDonationService.handleDonationClick(ref: ref);
     if (handled) {

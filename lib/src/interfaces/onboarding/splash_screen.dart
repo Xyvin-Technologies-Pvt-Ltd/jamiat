@@ -1,11 +1,18 @@
+import 'dart:developer';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:jamiat/src/data/constants/color_constants.dart';
+import 'package:jamiat/src/data/constants/style_constants.dart';
 import 'package:jamiat/src/data/providers/screen_data_providers.dart';
 import 'package:jamiat/src/data/services/auth_session_service.dart';
 import 'package:jamiat/src/data/services/deep_link_service.dart';
 import 'package:jamiat/src/data/services/navigation_services.dart';
+import 'package:jamiat/src/data/services/version_check_service.dart';
+import 'package:jamiat/src/interfaces/components/primarybutton.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -22,6 +29,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late Animation<double> _opacityAnimation;
   late Animation<double> _blurAnimation;
   late Animation<Offset> _slideAnimation;
+
+  bool _isAppUpdateRequired = false;
+  bool _forceUpdate = false;
+  bool _hasVersionCheckError = false;
+  String _errorMessage = '';
+  String? _updateLink;
+  bool _isRetrying = false;
 
   @override
   void initState() {
@@ -79,18 +93,88 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _entranceController.forward();
 
-    _navigateToNext();
+    _bootstrap();
   }
 
-  Future<void> _navigateToNext() async {
+  /// Store version gate first, then auth bootstrap. Never navigates away when
+  /// update is required or settings are unreachable.
+  Future<void> _bootstrap() async {
+    log('Splash bootstrap starting', name: 'SplashScreen');
+    final startedAt = DateTime.now();
+    final gate = await ref.read(versionCheckServiceProvider).check();
+
+    if (!mounted) return;
+
+    switch (gate.outcome) {
+      case VersionGateOutcome.serverError:
+        log('Navigation blocked — settings error', name: 'SplashScreen');
+        setState(() {
+          _hasVersionCheckError = true;
+          _isAppUpdateRequired = true;
+          _forceUpdate = false;
+          _errorMessage =
+              'Unable to reach the server. Check your connection and try again.';
+          _updateLink = null;
+          _isRetrying = false;
+        });
+        return;
+
+      case VersionGateOutcome.updateRequired:
+        log(
+          'Navigation blocked — update required '
+          '(force=${gate.isForce})',
+          name: 'SplashScreen',
+        );
+        setState(() {
+          _hasVersionCheckError = false;
+          _isAppUpdateRequired = true;
+          _forceUpdate = gate.isForce;
+          _errorMessage = gate.updateMessage;
+          _updateLink = gate.applink;
+          _isRetrying = false;
+        });
+        return;
+
+      case VersionGateOutcome.upToDate:
+        log('Version OK — continuing auth bootstrap', name: 'SplashScreen');
+        setState(() {
+          _hasVersionCheckError = false;
+          _isAppUpdateRequired = false;
+          _forceUpdate = false;
+          _errorMessage = '';
+          _updateLink = null;
+          _isRetrying = false;
+        });
+        await _navigateAfterAuth(startedAt: startedAt);
+    }
+  }
+
+  Future<void> _navigateAfterAuth({DateTime? startedAt}) async {
     final routeFuture = ref
         .read(authSessionServiceProvider)
         .resolveInitialRoute();
-    await Future.delayed(const Duration(seconds: 3));
+
+    // Keep a ~3s splash when coming from cold start; skip when user tapped Later.
+    if (startedAt != null) {
+      const minSplash = Duration(seconds: 3);
+      final elapsed = DateTime.now().difference(startedAt);
+      final remaining = minSplash - elapsed;
+      if (remaining > Duration.zero) {
+        await Future.delayed(remaining);
+      }
+    }
+
     final route = await routeFuture;
     if (!mounted) return;
+    if (_isAppUpdateRequired) {
+      log(
+        'Navigation skipped — update UI still active',
+        name: 'SplashScreen',
+      );
+      return;
+    }
+    log('Navigating to $route', name: 'SplashScreen');
     NavigationService().pushNamedAndRemoveUntil(route);
-    // Only open shared campaigns once the user can enter the app.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (route == 'navBar') {
         DeepLinkService.instance.markReady();
@@ -98,6 +182,44 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         DeepLinkService.instance.resetReady();
       }
     });
+  }
+
+  Future<void> _openStore() async {
+    final link = _updateLink;
+    log('Opening store link: $link', name: 'SplashScreen');
+    if (link == null || link.isEmpty) return;
+    try {
+      await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      log('Failed to open store: $e', name: 'SplashScreen');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open the store link')),
+      );
+    }
+  }
+
+  Future<void> _onLater() async {
+    log('Optional update skipped (Later)', name: 'SplashScreen');
+    setState(() {
+      _isAppUpdateRequired = false;
+      _forceUpdate = false;
+      _errorMessage = '';
+      _updateLink = null;
+    });
+    await _navigateAfterAuth();
+  }
+
+  Future<void> _onRetry() async {
+    if (_isRetrying) return;
+    log('Retrying version check', name: 'SplashScreen');
+    setState(() {
+      _isRetrying = true;
+      _hasVersionCheckError = false;
+      _isAppUpdateRequired = false;
+      _errorMessage = '';
+    });
+    await _bootstrap();
   }
 
   @override
@@ -133,84 +255,204 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       double.infinity,
     );
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: AnimatedBuilder(
-        animation: _entranceController,
-        builder: (context, child) {
-          return SlideTransition(
-            position: _slideAnimation,
-            child: FadeTransition(
-              opacity: _opacityAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(
-                    sigmaX: _blurAnimation.value,
-                    sigmaY: _blurAnimation.value,
-                  ),
-                  child: SizedBox.expand(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalInset,
-                      ),
-                      child: Column(
-                        children: [
-                          // Figma top ≈ 25%, bottom ≈ 26.6% — near-equal spacers.
-                          const Spacer(flex: 25),
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: screenSize.isTablet
-                                  ? screenSize.responsiveSize(420)
-                                  : double.infinity,
-                            ),
-                            child: const _SplashCollage(),
-                          ),
-                          SizedBox(height: collageLogoGap),
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SizedBox(
-                                width: logoWidth,
-                                child: Image.asset(
-                                  'assets/pngs/jamiat_logo.png',
-                                  fit: BoxFit.contain,
-                                  filterQuality: FilterQuality.high,
-                                ),
+    return PopScope(
+      canPop: !_forceUpdate && !_hasVersionCheckError,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: AnimatedBuilder(
+          animation: _entranceController,
+          builder: (context, child) {
+            return SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _opacityAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(
+                      sigmaX: _blurAnimation.value,
+                      sigmaY: _blurAnimation.value,
+                    ),
+                    child: SizedBox.expand(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalInset,
+                        ),
+                        child: Column(
+                          children: [
+                            // Figma top ≈ 25%, bottom ≈ 26.6% — near-equal spacers.
+                            const Spacer(flex: 25),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: screenSize.isTablet
+                                    ? screenSize.responsiveSize(420)
+                                    : double.infinity,
                               ),
-                              if (_entranceController.value > 0.5)
-                                Shimmer.fromColors(
-                                  baseColor: Colors.transparent,
-                                  highlightColor: Colors.white.withValues(
-                                    alpha: 0.8,
+                              child: const _SplashCollage(),
+                            ),
+                            SizedBox(height: collageLogoGap),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: logoWidth,
+                                  child: Image.asset(
+                                    'assets/pngs/jamiat_logo.png',
+                                    fit: BoxFit.contain,
+                                    filterQuality: FilterQuality.high,
                                   ),
-                                  period: const Duration(milliseconds: 1500),
-                                  direction: ShimmerDirection.ltr,
-                                  child: SizedBox(
-                                    width: logoWidth,
-                                    child: Image.asset(
-                                      'assets/pngs/jamiat_logo.png',
-                                      fit: BoxFit.contain,
-                                      filterQuality: FilterQuality.high,
-                                      color: Colors.white.withValues(
-                                        alpha: 200 / 255,
+                                ),
+                                if (_entranceController.value > 0.5)
+                                  Shimmer.fromColors(
+                                    baseColor: Colors.transparent,
+                                    highlightColor: Colors.white.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    period: const Duration(milliseconds: 1500),
+                                    direction: ShimmerDirection.ltr,
+                                    child: SizedBox(
+                                      width: logoWidth,
+                                      child: Image.asset(
+                                        'assets/pngs/jamiat_logo.png',
+                                        fit: BoxFit.contain,
+                                        filterQuality: FilterQuality.high,
+                                        color: Colors.white.withValues(
+                                          alpha: 200 / 255,
+                                        ),
+                                        colorBlendMode: BlendMode.srcIn,
                                       ),
-                                      colorBlendMode: BlendMode.srcIn,
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                          const Spacer(flex: 27),
-                        ],
+                              ],
+                            ),
+                            if (_isAppUpdateRequired) ...[
+                              SizedBox(height: screenSize.responsiveSize(24)),
+                              _SplashUpdatePanel(
+                                hasError: _hasVersionCheckError,
+                                forceUpdate: _forceUpdate,
+                                message: _errorMessage,
+                                isRetrying: _isRetrying,
+                                onRetry: _onRetry,
+                                onLater: _onLater,
+                                onUpdateNow: _openStore,
+                              ),
+                              SizedBox(height: screenSize.responsiveSize(24)),
+                            ] else
+                              const Spacer(flex: 27),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SplashUpdatePanel extends StatelessWidget {
+  const _SplashUpdatePanel({
+    required this.hasError,
+    required this.forceUpdate,
+    required this.message,
+    required this.isRetrying,
+    required this.onRetry,
+    required this.onLater,
+    required this.onUpdateNow,
+  });
+
+  final bool hasError;
+  final bool forceUpdate;
+  final String message;
+  final bool isRetrying;
+  final VoidCallback onRetry;
+  final VoidCallback onLater;
+  final VoidCallback onUpdateNow;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = hasError ? const Color(0xFFC62828) : kPrimaryColor;
+    final title = hasError
+        ? 'Server unavailable'
+        : (message.isNotEmpty ? message : 'Update Available');
+    final subtitle = hasError
+        ? 'Please check your internet connection and try again.'
+        : forceUpdate
+        ? 'This update is required to continue using the app.'
+        : 'A new version is available. Update now for the best experience.';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.06),
+          border: Border.all(color: accent.withValues(alpha: 0.22)),
+          borderRadius: BorderRadius.circular(kCardRadiusSm),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              hasError ? Icons.cloud_off_outlined : Icons.system_update_outlined,
+              color: accent,
+              size: 32,
             ),
-          );
-        },
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: kBodyTitleSB.copyWith(color: kTextColor, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: kBodyTitleR.copyWith(
+                color: kSecondaryTextColor,
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            if (hasError)
+              primaryButton(
+                label: 'Retry',
+                onPressed: isRetrying ? null : onRetry,
+                isLoading: isRetrying,
+                buttonHeight: 52,
+              )
+            else
+              Row(
+                children: [
+                  if (!forceUpdate) ...[
+                    Expanded(
+                      child: primaryButton(
+                        label: 'Later',
+                        onPressed: onLater,
+                        buttonColor: kWhite,
+                        labelColor: kPrimaryColor,
+                        sideColor: kPrimaryColor,
+                        buttonHeight: 52,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: primaryButton(
+                      label: 'Update Now',
+                      onPressed: onUpdateNow,
+                      buttonHeight: 52,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
